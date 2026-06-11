@@ -1,0 +1,9 @@
+[project]
+name = "mojo-intel-gpu"
+version = "0.1.0"
+description = "Mojo Level Zero FFI package for Intel GPU compute"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "mojo>=1.0.0b1",
+]

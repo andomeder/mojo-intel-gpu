@@ -1,0 +1,39 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+
+# Symlinked documentation directories
+odocs/
+odocs
+.sisyphus/
+.sisyphus
+.omo/
+.omo
+
+# Build artifacts
+*.so
+*.o
+*.bc
+*.mojopkg
+
+# SPIR-V (generated from .cl sources — tracked via .cl files)
+*.spv
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
