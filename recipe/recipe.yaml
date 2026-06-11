@@ -1,0 +1,54 @@
+schema_version: 1
+
+context:
+  version: "0.1.0"
+
+package:
+  name: mojo-intel-gpu
+  version: ${{ version }}
+
+source:
+  path: ..
+
+build:
+  number: 0
+  script:
+    - mkdir -p $PREFIX/lib/mojo
+    - mojo package mojo_intel_gpu -o $PREFIX/lib/mojo/mojo_intel_gpu.mojopkg
+    # Compile SPIR-V kernels
+    - clang -cl-std=CL3.0 -target spirv64 -emit-llvm -c -o vector_add.bc vector_add.cl && llvm-spirv vector_add.bc -o $PREFIX/lib/mojo/vector_add.spv
+    - clang -cl-std=CL3.0 -target spirv64 -emit-llvm -c -o matmul.bc matmul.cl && llvm-spirv matmul.bc -o $PREFIX/lib/mojo/matmul.spv
+    - clang -cl-std=CL3.0 -target spirv64 -emit-llvm -c -o reduction.bc reduction.cl && llvm-spirv reduction.bc -o $PREFIX/lib/mojo/reduction.spv
+    # Copy OpenCL kernel sources
+    - mkdir -p $PREFIX/share/mojo-intel-gpu/kernels
+    - cp *.cl $PREFIX/share/mojo-intel-gpu/kernels/
+
+requirements:
+  build:
+    - mojo >=1.0.0b1
+    - clang
+    - llvm
+  run:
+    - libze-loader
+    - intel-compute-runtime
+
+test:
+  commands:
+    - test -f $PREFIX/lib/mojo/mojo_intel_gpu.mojopkg
+    - test -f $PREFIX/lib/mojo/vector_add.spv
+    - test -f $PREFIX/lib/mojo/matmul.spv
+    - test -f $PREFIX/lib/mojo/reduction.spv
+
+about:
+  homepage: https://github.com/andomeder/mojo-intel-gpu
+  license: MIT
+  license_file: LICENSE
+  description: |
+    Mojo GPU compute on Intel GPUs via Level Zero FFI.
+    Supports Intel Arc (Battlemage Xe2), Arc A-series (Xe HPG),
+    and Intel Data Center GPUs.
+  summary: Intel GPU support for Mojo via Level Zero
+
+extra:
+  recipe-maintainers:
+    - andomeder
