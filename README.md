@@ -357,7 +357,7 @@ _Run `.venv/bin/mojo run -I . examples/benchmark.mojo` to reproduce._
 _Run `.venv/bin/mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo` to reproduce._
 
 Note: average H2D is lower than min because the first transfer includes command list + sync setup overhead. Sustained throughput (min) matches Intel's published PCIe Gen4 x8 number within 12%.
-332#XP
+
 
 ## Troubleshooting
 
@@ -407,8 +407,10 @@ sudo usermod -aG render $USER
 3. Make your changes
 4. Run tests: `.venv/bin/mojo run -I . tests/test_all.mojo`
 5. Run bandwidth/latency: `.venv/bin/mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo`
-408#JS
-5. Submit a pull request
+
+6. Submit a pull request
+
+
 
 ## License
 
