@@ -65,6 +65,7 @@ struct LevelZeroLibrary(Movable):
             count_ptr, drivers_ptr
         )
         return ZeResult(UInt32(result))
+
     def device_get(self, driver: Int, count_ptr: Int, devices_ptr: Int) -> ZeResult:
         """Get devices for a driver.
 
@@ -224,7 +225,7 @@ struct LevelZeroLibrary(Movable):
         return ZeResult(UInt32(result))
 
     # =========================================================================
-    # Memory copy (immediate command list — synchronous)
+    # Memory copy & fill (immediate command list — synchronous)
     # =========================================================================
 
     def memcpy_htod(self, cmdlist: Int, dst_device: Int, src_host: Int,
@@ -250,6 +251,22 @@ struct LevelZeroLibrary(Movable):
         if result != 0:
             return ZeResult(UInt32(result))
         # Sync
+        result = self._lib.call["zeCommandListHostSynchronize", Int32](
+            cmdlist, UInt64(0xFFFFFFFFFFFFFFFF)
+        )
+        return ZeResult(UInt32(result))
+
+    def memset_device(self, cmdlist: Int, dst_device: Int, value: UInt8,
+                       size: UInt64) -> ZeResult:
+        """Fill device memory with a byte value (synchronous)."""
+        var pattern = alloc[Int8](1)
+        pattern[0] = Int8(value)
+        var result = self._lib.call["zeCommandListAppendMemoryFill", Int32](
+            cmdlist, dst_device, Int(pattern), UInt64(1), size,
+            Int(0), UInt32(0), Int(0)
+        )
+        if result != 0:
+            return ZeResult(UInt32(result))
         result = self._lib.call["zeCommandListHostSynchronize", Int32](
             cmdlist, UInt64(0xFFFFFFFFFFFFFFFF)
         )

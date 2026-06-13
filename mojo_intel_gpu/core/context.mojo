@@ -360,6 +360,22 @@ struct IntelGPUContext(Movable):
         if result.is_error():
             raise Error("Device-to-host copy failed: " + String(result))
 
+    def memset_device(mut self, dst_device: Int, value: UInt8,
+                       size: UInt64) raises:
+        """Fill device memory with a byte value.
+
+        Args:
+            dst_device: Device pointer.
+            value: Byte value to fill.
+            size: Number of bytes to fill.
+
+        Raises:
+            Error: If fill fails.
+        """
+        var result = self._lib.memset_device(self._cmdlist, dst_device, value, size)
+        if result.is_error():
+            raise Error("Device memset failed: " + String(result))
+
     def synchronize(mut self) raises:
         """Wait for all GPU operations to complete.
 
