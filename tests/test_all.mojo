@@ -5,6 +5,7 @@ Tests all major functionality:
   - Context initialization
   - Memory allocation and transfers
   - Kernel loading and dispatch
+  - Multi-GPU enumeration
 
 Usage:
     mojo run -I . tests/test_all.mojo
@@ -177,6 +178,31 @@ def test_kernel() raises:
     ctx.close()
 
 
+def test_multi_gpu() raises:
+    """Test multi-GPU enumeration (validates zeInitDrivers refactor)."""
+    print("\n=== Test: Multi-GPU Enumeration ===")
+
+    var detector = IntelGPUDetector()
+    var count = detector.get_gpu_count()
+    print("  Intel GPUs found:", count)
+
+    if count == 0:
+        raise Error("No Intel GPUs found")
+
+    for i in range(count):
+        var info = detector.get_gpu_info()
+        print(
+            "  GPU[", i, "]:", info.name,
+            "vendor=", hex(Int(info.vendor_id)),
+            "device=", hex(Int(info.device_id)),
+        )
+
+    if count >= 1:
+        print("  ✓ Enumeration correct")
+    else:
+        raise Error("Expected at least 1 GPU")
+
+
 def main() raises:
     print("=== mojo_intel_gpu Test Suite ===\n")
 
@@ -209,6 +235,13 @@ def main() raises:
         tests_passed += 1
     except e:
         print("  ✗ Kernel test failed:", e)
+        tests_failed += 1
+
+    try:
+        test_multi_gpu()
+        tests_passed += 1
+    except e:
+        print("  ✗ Multi-GPU test failed:", e)
         tests_failed += 1
 
     print("\n=== Test Results ===")
