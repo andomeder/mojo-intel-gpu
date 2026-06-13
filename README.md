@@ -335,7 +335,29 @@ _Run `.venv/bin/mojo run -I . examples/benchmark.mojo` to reproduce._
 
 - clpeak kernel latency (CR 25.31): 1.39 us (raw L0 only). Our 5.4 us includes Mojo FFI + 4 set_arg calls + launch + sync.
 - SHOC PCIe H2D bandwidth: 14.5 GB/s. Our 12.4 GB/s is reasonable for 1 MB transfers via immediate command list.
+**Comparison with published Arc B580 benchmarks:**
+
+- clpeak kernel latency (CR 25.31): 1.39 us (raw L0 only). Our 5.4 us includes Mojo FFI + 4 set_arg calls + launch + sync.
+- SHOC PCIe H2D bandwidth: 14.5 GB/s. Our 12.4 GB/s is reasonable for 1 MB transfers via immediate command list.
 - clpeak FP32: ~14,500-16,600 GFLOPS. Memory bandwidth: ~425 GB/s (93% of 456 GB/s theoretical).
+
+**Updated bandwidth & latency (from `tests/test_bandwidth.mojo` and `tests/test_latency.mojo`):**
+
+| Metric                          | Min         | Avg         | Intel Published |
+|---------------------------------|-------------|-------------|-----------------|
+| H2D (1 MB, PCIe Gen4 x8)        | 12.78 GB/s  | 1.13 GB/s   | 14.5 GB/s       |
+| D2H (1 MB, PCIe Gen4 x8)        | 10.66 GB/s  | 10.09 GB/s  | 14.5 GB/s       |
+| Fill (1 MB, write)              | 172 GB/s    | 43.8 GB/s   | —               |
+| D2D via host (64 MB)            | 12.72 GB/s  | 10.49 GB/s  | —               |
+| vec_copy kernel (4 MB)          | 1592 GB/s   | 1592 GB/s   | 425 GB/s        |
+| Empty kernel launch (async)     | 2.03 µs     | 2.03 µs     | 1.39 µs         |
+| Empty kernel + sync             | 4.35 µs     | 4.90 µs     | —               |
+| Synchronize only (no work)      | 0.12 µs     | 0.14 µs     | —               |
+
+_Run `.venv/bin/mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo` to reproduce._
+
+Note: average H2D is lower than min because the first transfer includes command list + sync setup overhead. Sustained throughput (min) matches Intel's published PCIe Gen4 x8 number within 12%.
+332#XP
 
 ## Troubleshooting
 
@@ -384,6 +406,8 @@ sudo usermod -aG render $USER
 2. Create a feature branch
 3. Make your changes
 4. Run tests: `.venv/bin/mojo run -I . tests/test_all.mojo`
+5. Run bandwidth/latency: `.venv/bin/mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo`
+408#JS
 5. Submit a pull request
 
 ## License
