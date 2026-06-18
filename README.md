@@ -36,7 +36,28 @@ sudo pacman -S clinfo              # Check OpenCL device info
 
 ## Installation
 
-### 1. Install Level Zero Runtime
+### Option A: Install from prefix.dev (Recommended)
+
+The package is published on the [modular-community channel](https://prefix.dev/channels/modular-community/packages/mojo-intel-gpu). Install with pixi:
+
+```bash
+pixi add mojo-intel-gpu
+```
+
+This pulls the pre-compiled `.mojopkg` and pins the compatible Mojo compiler.
+
+After installation, get the example sources and SPIR-V kernels (kernels aren't shipped in the package — they're compiled from `.cl` at build time):
+
+```bash
+git clone https://github.com/andomeder/mojo-intel-gpu
+cd mojo-intel-gpu
+./tools/compile_kernels.sh
+mojo run -I . examples/vector_add.mojo
+```
+
+### Option B: Build from Source
+
+#### 1. Install Level Zero Runtime
 
 ```bash
 # Ubuntu/Debian
@@ -50,7 +71,7 @@ ls -la /usr/lib/libze_loader.so
 ls -la /usr/include/level_zero/ze_api.h
 ```
 
-### 2. Clone and Build
+#### 2. Clone and Build
 
 ```bash
 git clone https://github.com/andomeder/mojo-intel-gpu.git
@@ -60,17 +81,60 @@ cd mojo-intel-gpu
 ./tools/compile_kernels.sh
 
 # Build Mojo package
-.venv/bin/mojo package mojo_intel_gpu -o mojo_intel_gpu.mojopkg
+mojo package mojo_intel_gpu -o mojo_intel_gpu.mojopkg
 ```
 
-### 3. Run Examples
+#### 3. Run Examples
 
 ```bash
-.venv/bin/mojo run -I . examples/vector_add.mojo
-.venv/bin/mojo run -I . examples/matrix_multiply.mojo
-.venv/bin/mojo run -I . examples/reduction.mojo
-.venv/bin/mojo run -I . examples/benchmark.mojo
+mojo run -I . examples/vector_add.mojo
+mojo run -I . examples/matrix_multiply.mojo
+mojo run -I . examples/reduction.mojo
+mojo run -I . examples/benchmark.mojo
 ```
+
+## Local Development with uv
+
+For contributors editing the source, [uv](https://docs.astral.sh/uv/) handles the Python and Mojo toolchain. The `pyproject.toml` and `uv.lock` are checked in.
+
+```bash
+git clone https://github.com/andomeder/mojo-intel-gpu.git
+cd mojo-intel-gpu
+
+# Sync the environment (installs mojo from the modular PyPI index)
+uv sync
+
+# Mojo is now available on the PATH
+mojo --version
+
+# Build the package
+mojo package mojo_intel_gpu -o mojo_intel_gpu.mojopkg
+
+# Run an example
+mojo run -I . examples/vector_add.mojo
+```
+
+The `.venv/` is git-ignored. To remove and recreate: `rm -rf .venv && uv sync`.
+
+Note: this workflow is for editing and testing the package source. To install the published `.mojopkg` in another project, use **Option A** (pixi) — Mojo packages are distributed through conda, not PyPI.
+
+## Building the Conda Recipe
+
+The package includes a [rattler-build](https://rattler.build) recipe at `recipe/recipe.yaml`. To rebuild from source as a conda package:
+
+```bash
+# Install rattler-build
+pixi global install rattler-build
+
+# Build the package (channels from the official Modular packaging docs)
+rattler-build build \
+  --recipe recipe/recipe.yaml \
+  -c conda-forge \
+  -c https://conda.modular.com/max \
+  -c https://repo.prefix.dev/modular-community
+```
+
+The recipe installs `mojo_intel_gpu.mojopkg` to `${PREFIX}/lib/mojo/` for auto-discovery by the Mojo compiler.
 
 ## Quick Start
 
@@ -218,7 +282,7 @@ struct ComputeProperties:
 ### Vector Addition
 
 ```bash
-.venv/bin/mojo run -I . examples/vector_add.mojo
+mojo run -I . examples/vector_add.mojo
 ```
 
 Demonstrates basic GPU operations: memory allocation, data transfer, kernel dispatch.
@@ -226,7 +290,7 @@ Demonstrates basic GPU operations: memory allocation, data transfer, kernel disp
 ### Matrix Multiplication
 
 ```bash
-.venv/bin/mojo run -I . examples/matrix_multiply.mojo
+mojo run -I . examples/matrix_multiply.mojo
 ```
 
 Demonstrates 2D kernel launch with naive matrix multiplication.
@@ -234,7 +298,7 @@ Demonstrates 2D kernel launch with naive matrix multiplication.
 ### Parallel Reduction
 
 ```bash
-.venv/bin/mojo run -I . examples/reduction.mojo
+mojo run -I . examples/reduction.mojo
 ```
 
 Demonstrates shared memory and parallel tree reduction.
@@ -242,46 +306,10 @@ Demonstrates shared memory and parallel tree reduction.
 ### Benchmark
 
 ```bash
-.venv/bin/mojo run -I . examples/benchmark.mojo
+mojo run -I . examples/benchmark.mojo
 ```
 
 Measures kernel dispatch latency, memory transfer bandwidth, and end-to-end performance.
-
-## Project Structure
-
-```
-mojo-intel-gpu/
-├── mojo_intel_gpu/            # Mojo package (importable)
-│   ├── __init__.mojo          # Package entry point
-│   ├── l0/
-│   │   ├── types.mojo         # Level Zero type definitions
-│   │   └── loader.mojo        # Level Zero function bindings (16 functions)
-│   ├── core/
-│   │   ├── context.mojo       # GPU context management
-│   │   ├── memory.mojo        # DeviceBuffer/HostBuffer RAII wrappers
-│   │   └── kernel.mojo        # SPIR-V kernel loading and dispatch
-│   └── utils/
-│       └── detect.mojo        # GPU detection utilities
-│
-├── vector_add.cl              # OpenCL kernel sources
-├── matmul.cl
-├── reduction.cl
-│
-├── examples/                  # Example programs
-│   ├── vector_add.mojo
-│   ├── matrix_multiply.mojo
-│   ├── reduction.mojo
-│   └── benchmark.mojo
-│
-├── tests/
-│   └── test_all.mojo          # Test suite
-│
-├── tools/
-│   └── compile_kernels.sh     # Compile OpenCL C -> SPIR-V
-│
-└── recipe/
-    └── recipe.yaml            # Conda recipe for distribution
-```
 
 ## Architecture
 
@@ -329,12 +357,9 @@ FFI overhead is **zero** — `lib.call["name", RetType](args)` compiles to a dir
 | Kernel dispatch (set_args+launch+sync) | 6.9 us avg, 5.4 us min                   |
 | E2E vector_add (1M floats)             | 1.3 ms avg, 1.0 ms min                   |
 
-_Run `.venv/bin/mojo run -I . examples/benchmark.mojo` to reproduce._
+_Run `mojo run -I . examples/benchmark.mojo` to reproduce._
 
-**Comparison with published Arc B580 benchmarks:**
 
-- clpeak kernel latency (CR 25.31): 1.39 us (raw L0 only). Our 5.4 us includes Mojo FFI + 4 set_arg calls + launch + sync.
-- SHOC PCIe H2D bandwidth: 14.5 GB/s. Our 12.4 GB/s is reasonable for 1 MB transfers via immediate command list.
 **Comparison with published Arc B580 benchmarks:**
 
 - clpeak kernel latency (CR 25.31): 1.39 us (raw L0 only). Our 5.4 us includes Mojo FFI + 4 set_arg calls + launch + sync.
@@ -354,7 +379,7 @@ _Run `.venv/bin/mojo run -I . examples/benchmark.mojo` to reproduce._
 | Empty kernel + sync             | 4.35 µs     | 4.90 µs     | —               |
 | Synchronize only (no work)      | 0.12 µs     | 0.14 µs     | —               |
 
-_Run `.venv/bin/mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo` to reproduce._
+_Run `mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo` to reproduce._
 
 Note: average H2D is lower than min because the first transfer includes command list + sync setup overhead. Sustained throughput (min) matches Intel's published PCIe Gen4 x8 number within 12%.
 
@@ -405,8 +430,8 @@ sudo usermod -aG render $USER
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `.venv/bin/mojo run -I . tests/test_all.mojo`
-5. Run bandwidth/latency: `.venv/bin/mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo`
+4. Run tests: `mojo run -I . tests/test_all.mojo`
+5. Run bandwidth/latency: `mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo`
 
 6. Submit a pull request
 
