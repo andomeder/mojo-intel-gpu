@@ -18,7 +18,7 @@ Intel GPU support for Mojo via Level Zero FFI.
 
 **Requirements:**
 
-- Mojo v1.0.0b1+ required
+- Mojo v1.0.0+ required
 - Level Zero runtime (`libze_loader.so`)
 - Intel GPU with Level Zero support
 - Linux (kernel 6.x+)
@@ -44,7 +44,7 @@ The package is published on the [modular-community channel](https://prefix.dev/c
 pixi add mojo-intel-gpu
 ```
 
-This pulls the pre-compiled `.mojopkg` and pins the compatible Mojo compiler.
+This pulls the pre-compiled `.mojoc` and pins the compatible Mojo compiler.
 
 After installation, get the example sources and SPIR-V kernels (kernels aren't shipped in the package — they're compiled from `.cl` at build time):
 
@@ -81,7 +81,7 @@ cd mojo-intel-gpu
 ./tools/compile_kernels.sh
 
 # Build Mojo package
-mojo package mojo_intel_gpu -o mojo_intel_gpu.mojopkg
+mojo precompile mojo_intel_gpu -o mojo_intel_gpu.mojoc
 ```
 
 #### 3. Run Examples
@@ -108,7 +108,7 @@ uv sync
 mojo --version
 
 # Build the package
-mojo package mojo_intel_gpu -o mojo_intel_gpu.mojopkg
+mojo precompile mojo_intel_gpu -o mojo_intel_gpu.mojoc
 
 # Run an example
 mojo run -I . examples/vector_add.mojo
@@ -116,7 +116,7 @@ mojo run -I . examples/vector_add.mojo
 
 The `.venv/` is git-ignored. To remove and recreate: `rm -rf .venv && uv sync`.
 
-Note: this workflow is for editing and testing the package source. To install the published `.mojopkg` in another project, use **Option A** (pixi) — Mojo packages are distributed through conda, not PyPI.
+Note: this workflow is for editing and testing the package source. To install the published `.mojoc` in another project, use **Option A** (pixi) - Mojo packages are distributed through conda, not PyPI.
 
 ## Building the Conda Recipe
 
@@ -134,7 +134,7 @@ rattler-build build \
   -c https://repo.prefix.dev/modular-community
 ```
 
-The recipe installs `mojo_intel_gpu.mojopkg` to `${PREFIX}/lib/mojo/` for auto-discovery by the Mojo compiler.
+The recipe installs `mojo_intel_gpu.mojoc` to `${PREFIX}/lib/mojo/` for auto-discovery by the Mojo compiler.
 
 ## Quick Start
 
@@ -157,11 +157,11 @@ def main() raises:
     var d_c = ctx.allocate_device(bytes)
 
     # Initialize data
-    var a_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_a)
-    var b_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_b)
+    var a_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_a)
+    var b_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_b)
     for i in range(N):
-        a_ptr[i] = Float32(i)
-        b_ptr[i] = Float32(i) * 2.0
+        a_ptr.unsafe_offset(i)[] = Float32(i)
+        b_ptr.unsafe_offset(i)[] = Float32(i) * 2.0
 
     # Copy to device
     ctx.memcpy_htod(d_a, h_a, bytes)
@@ -169,7 +169,7 @@ def main() raises:
 
     # Load and run kernel
     var kernel = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./vector_add.spv", "vector_add"
     )
     kernel.set_arg_pointer(0, d_a)
@@ -179,16 +179,15 @@ def main() raises:
     var num_groups = UInt32((N + 255) / 256)
     kernel.set_group_size(256, 1, 1)
     kernel.launch(ZeGroupCount(num_groups, 1, 1))
-    kernel.launch(ZeGroupCount(num_groups, 1, 1))
     ctx.synchronize()
 
     # Copy result back
     ctx.memcpy_dtoh(h_c, d_c, bytes)
 
     # Verify
-    var c_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_c)
+    var c_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_c)
     for i in range(10):
-        print("c[", i, "] =", c_ptr[i])
+        print("c[", i, "] =", c_ptr.unsafe_offset(i)[])
 
     # Cleanup
     ctx.free_device(d_a)
@@ -238,7 +237,7 @@ ctx.close()            # Release all resources
 SPIR-V kernel wrapper.
 
 ```mojo
-kernel = Kernel(ctx.context(), ctx.device(), ctx.command_list(),
+kernel = Kernel(ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
                 "path/to/kernel.spv", "kernel_name")
 
 # Argument binding
@@ -340,7 +339,7 @@ Intel GPU Hardware
 
 ## Performance
 
-FFI overhead is **zero** — `lib.call["name", RetType](args)` compiles to a direct LLVM CALL instruction, identical to calling C from C.
+FFI overhead is **zero** — resolved symbols are invoked through the C ABI as direct CALL instructions, identical to calling C from C.
 
 **Intel Arc B580 (Battlemage Xe2) — Measured Results:**
 
