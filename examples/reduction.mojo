@@ -12,7 +12,7 @@ from mojo_intel_gpu import IntelGPUContext, Kernel, ZeGroupCount
 
 
 def main() raises:
-    print("=== Parallel Reduction: Mojo → Level Zero → Intel Arc B580 ===")
+    print("=== Parallel Reduction: Mojo → Level Zero → Intel GPU ===")
 
     var ctx = IntelGPUContext()
     print("GPU initialized:", ctx.device_info().name)
@@ -29,14 +29,14 @@ def main() raises:
     var h_output = ctx.allocate_host(output_bytes)
 
     # Initialize input data
-    var input_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_input)
+    var input_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_input)
     for i in range(N):
-        input_ptr[i] = 1.0  # sum should be N
+        input_ptr.unsafe_offset(i)[] = 1.0  # sum should be N
 
     # Zero output buffer
-    var output_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_output)
+    var output_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_output)
     for i in range(Int(num_groups)):
-        output_ptr[i] = 0.0
+        output_ptr.unsafe_offset(i)[] = 0.0
 
     # Allocate device buffers
     var d_input = ctx.allocate_device(bytes)
@@ -50,7 +50,7 @@ def main() raises:
 
     # Load kernel
     var kernel = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./reduction.spv", "reduce_sum"
     )
     print("Kernel loaded")
@@ -76,7 +76,7 @@ def main() raises:
     # Verify — sum all partial results
     var total: Float32 = 0.0
     for i in range(Int(num_groups)):
-        total += output_ptr[i]
+        total += output_ptr.unsafe_offset(i)[]
 
     var expected = Float32(N)
     var diff = abs(total - expected)

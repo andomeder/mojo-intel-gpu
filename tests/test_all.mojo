@@ -75,19 +75,19 @@ def test_memory() raises:
     var d_buf2 = ctx.allocate_device(bytes)
 
     # Initialize source
-    var src_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_src)
+    var src_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_src)
     for i in range(N):
-        src_ptr[i] = Float32(i) * 3.14
+        src_ptr.unsafe_offset(i)[] = Float32(i) * 3.14
 
     # Copy host → device → host
     ctx.memcpy_htod(d_buf2, h_src, bytes)
     ctx.memcpy_dtoh(h_dst, d_buf2, bytes)
 
     # Verify
-    var dst_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_dst)
+    var dst_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_dst)
     var errors = 0
     for i in range(N):
-        if dst_ptr[i] != src_ptr[i]:
+        if dst_ptr.unsafe_offset(i)[] != src_ptr.unsafe_offset(i)[]:
             errors += 1
 
     if errors == 0:
@@ -120,11 +120,11 @@ def test_kernel() raises:
     var d_c = ctx.allocate_device(bytes)
 
     # Initialize
-    var a_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_a)
-    var b_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_b)
+    var a_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_a)
+    var b_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_b)
     for i in range(N):
-        a_ptr[i] = Float32(i)
-        b_ptr[i] = Float32(i) * 2.0
+        a_ptr.unsafe_offset(i)[] = Float32(i)
+        b_ptr.unsafe_offset(i)[] = Float32(i) * 2.0
 
     # Copy to device
     ctx.memcpy_htod(d_a, h_a, bytes)
@@ -132,7 +132,7 @@ def test_kernel() raises:
 
     # Load kernel
     var kernel = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./vector_add.spv", "vector_add"
     )
     print("  ✓ Kernel loaded")
@@ -156,11 +156,11 @@ def test_kernel() raises:
 
     # Verify
     ctx.memcpy_dtoh(h_c, d_c, bytes)
-    var c_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_c)
+    var c_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_c)
     var errors = 0
     for i in range(N):
         var expected = Float32(i) + Float32(i) * 2.0
-        if c_ptr[i] != expected:
+        if c_ptr.unsafe_offset(i)[] != expected:
             errors += 1
 
     if errors == 0:

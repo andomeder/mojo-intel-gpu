@@ -128,7 +128,7 @@ def main() raises:
 
     # Load empty kernel
     var kernel = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./empty.spv", "empty"
     )
     kernel.set_group_size(UInt32(1), 1, 1)

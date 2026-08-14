@@ -1,4 +1,4 @@
-"""Benchmark script for Intel Arc B580 via Level Zero.
+"""Benchmark script for Intel GPUs via Level Zero.
 
 Measures kernel dispatch latency, memory throughput, and end-to-end
 vector_add performance using the mojo_intel_gpu package.
@@ -15,7 +15,7 @@ from std.time.time import perf_counter_ns
 
 def print_header():
     print("")
-    print("=== Intel Arc B580 Benchmark ===")
+    print("=== Intel GPU Benchmark ===")
     print(
         "Operation              | Avg (us)  | Min (us)  | Max (us)  |"
         " Iterations"
@@ -232,7 +232,7 @@ def bench_kernel_dispatch(mut ctx: IntelGPUContext, iters: Int) raises:
 
     # Load kernel once
     var kernel = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./vector_add.spv", "vector_add",
     )
 
@@ -300,7 +300,7 @@ def bench_e2e_vector_add(mut ctx: IntelGPUContext, iters: Int) raises:
     ctx.memcpy_htod(w_a, wh_a, bytes)
     ctx.memcpy_htod(w_b, wh_b, bytes)
     var wkr = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./vector_add.spv", "vector_add",
     )
     wkr.set_arg_pointer(0, w_a)
@@ -336,7 +336,7 @@ def bench_e2e_vector_add(mut ctx: IntelGPUContext, iters: Int) raises:
 
         # Launch
         var kr = Kernel(
-            ctx.context(), ctx.device(), ctx.command_list(),
+            ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
             "./vector_add.spv", "vector_add",
         )
         kr.set_arg_pointer(0, da)

@@ -14,7 +14,7 @@ from mojo_intel_gpu import IntelGPUContext, Kernel, ZeGroupCount
 
 
 def main() raises:
-    print("=== Vector Addition: Mojo → Level Zero → Intel Arc B580 ===")
+    print("=== Vector Addition: Mojo → Level Zero → Intel GPU ===")
 
     # Initialize GPU context
     var ctx = IntelGPUContext()
@@ -30,11 +30,11 @@ def main() raises:
     var h_c = ctx.allocate_host(bytes)
 
     # Initialize input data on host
-    var a_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_a)
-    var b_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_b)
+    var a_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_a)
+    var b_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_b)
     for i in range(N):
-        a_ptr[i] = Float32(i)
-        b_ptr[i] = Float32(i) * 2.0
+        a_ptr.unsafe_offset(i)[] = Float32(i)
+        b_ptr.unsafe_offset(i)[] = Float32(i) * 2.0
 
     # Allocate device buffers
     var d_a = ctx.allocate_device(bytes)
@@ -49,7 +49,7 @@ def main() raises:
 
     # Load kernel
     var kernel = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./vector_add.spv", "vector_add"
     )
     print("Kernel loaded")
@@ -77,11 +77,11 @@ def main() raises:
     ctx.memcpy_dtoh(h_c, d_c, bytes)
 
     # Verify results
-    var c_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_c)
+    var c_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_c)
     var errors = 0
     for i in range(N):
         var expected = Float32(i) + Float32(i) * 2.0
-        var actual = c_ptr[i]
+        var actual = c_ptr.unsafe_offset(i)[]
         if actual != expected:
             if errors < 5:
                 print("  MISMATCH [", i, "]: expected", expected, "got", actual)
@@ -89,9 +89,9 @@ def main() raises:
 
     if errors == 0:
         print("ALL", N, "results correct! c[i] = a[i] + b[i] = i + 2i = 3i")
-        print("  c[0] =", c_ptr[0], " (expect 0)")
-        print("  c[1] =", c_ptr[1], " (expect 3)")
-        print("  c[99] =", c_ptr[99], " (expect 297)")
+        print("  c[0] =", c_ptr.unsafe_offset(0)[], " (expect 0)")
+        print("  c[1] =", c_ptr.unsafe_offset(1)[], " (expect 3)")
+        print("  c[99] =", c_ptr.unsafe_offset(99)[], " (expect 297)")
     else:
         print(errors, "mismatches out of", N)
 

@@ -12,7 +12,7 @@ from mojo_intel_gpu import IntelGPUContext, Kernel, ZeGroupCount
 
 
 def main() raises:
-    print("=== Matrix Multiplication: Mojo → Level Zero → Intel Arc B580 ===")
+    print("=== Matrix Multiplication: Mojo → Level Zero → Intel GPU ===")
 
     var ctx = IntelGPUContext()
     print("GPU initialized:", ctx.device_info().name)
@@ -31,14 +31,14 @@ def main() raises:
     var h_c = ctx.allocate_host(bytes_c)
 
     # Initialize matrices
-    var a_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_a)
-    var b_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_b)
+    var a_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_a)
+    var b_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_b)
     for i in range(M):
         for j in range(K):
-            a_ptr[i * K + j] = Float32(i + j) * 0.01
+            a_ptr.unsafe_offset(i * K + j)[] = Float32(i + j) * 0.01
     for i in range(K):
         for j in range(N):
-            b_ptr[i * N + j] = Float32(i - j) * 0.01
+            b_ptr.unsafe_offset(i * N + j)[] = Float32(i - j) * 0.01
 
     # Allocate device buffers
     var d_a = ctx.allocate_device(bytes_a)
@@ -53,7 +53,7 @@ def main() raises:
 
     # Load kernel
     var kernel = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./matmul.spv", "matmul"
     )
     print("Kernel loaded")
@@ -83,7 +83,7 @@ def main() raises:
     ctx.memcpy_dtoh(h_c, d_c, bytes_c)
 
     # Verify — compute CPU reference and compare
-    var c_ptr = UnsafePointer[Float32, MutExternalOrigin](unsafe_from_address=h_c)
+    var c_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_c)
     var errors = 0
     var max_diff: Float32 = 0.0
 
@@ -91,8 +91,8 @@ def main() raises:
         for j in range(N):
             var sum: Float32 = 0.0
             for k in range(K):
-                sum += a_ptr[i * K + k] * b_ptr[k * N + j]
-            var diff = abs(c_ptr[i * N + j] - sum)
+                sum += a_ptr.unsafe_offset(i * K + k)[] * b_ptr.unsafe_offset(k * N + j)[]
+            var diff = abs(c_ptr.unsafe_offset(i * N + j)[] - sum)
             if diff > max_diff:
                 max_diff = diff
             if diff > 0.001:

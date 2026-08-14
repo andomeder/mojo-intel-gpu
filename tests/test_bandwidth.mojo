@@ -200,9 +200,9 @@ def main() raises:
     var d_buf = ctx.allocate_device(small_size)
 
     # Initialize host buffer
-    var h_ptr = UnsafePointer[UInt8, MutExternalOrigin](unsafe_from_address=h_buf)
+    var h_ptr = Pointer[UInt8, MutUntrackedOrigin](unsafe_from_address=h_buf)
     for i in range(Int(small_size)):
-        h_ptr[i] = UInt8(i & 0xFF)
+        h_ptr.unsafe_offset(i)[] = UInt8(i & 0xFF)
 
     test_h2d_bandwidth(ctx, d_buf, h_buf, small_size, iters)
     test_d2h_bandwidth(ctx, d_buf, h_buf, small_size, iters)
@@ -221,7 +221,7 @@ def main() raises:
     var d_kdst = ctx.allocate_device(kbytes)
 
     var kernel = Kernel(
-        ctx.context(), ctx.device(), ctx.command_list(),
+        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
         "./bandwidth.spv", "vec_copy"
     )
     test_kernel_copy(ctx, kernel, d_ksrc, d_kdst, n, iters)
