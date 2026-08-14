@@ -3,7 +3,8 @@
 Provides functions to detect Intel GPUs and query their capabilities
 without requiring manual Level Zero initialization.
 """
-from std.memory import alloc, memset
+from std.memory import unsafe_memset
+from std.memory.alloc import unsafe_alloc
 from ..l0.types import (
     ZeDeviceType, DeviceProperties, ComputeProperties,
     ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES,
@@ -15,16 +16,15 @@ struct _GPUDeviceResult(Movable):
     """Internal result from GPU device search."""
     var driver_handle: Int
     var device_handle: Int
-    var props_buffer: Int
+    var props_buffer: Pointer[Int8, MutUntrackedOrigin]
 
-    def __init__(out self, driver: Int, device: Int, props: Int):
+    def __init__(out self, driver: Int, device: Int, props: Pointer[Int8, MutUntrackedOrigin]):
         self.driver_handle = driver
         self.device_handle = device
         self.props_buffer = props
 
-    def __del__(deinit self):
-        if self.props_buffer != Int(0):
-            UnsafePointer[Int8, MutExternalOrigin](unsafe_from_address=self.props_buffer).free()
+    def __deinit__(deinit self):
+        self.props_buffer.unsafe_free()
 
 
 struct IntelGPUDetector:
@@ -47,25 +47,25 @@ struct IntelGPUDetector:
 
     def _get_drivers(self, lib: LevelZeroLibrary) raises -> List[Int]:
         """Get all Level Zero driver handles."""
-        var count_buf = alloc[UInt32](1)
-        count_buf[0] = 0
+        var count_buf = unsafe_alloc[UInt32](1)
+        count_buf.unsafe_offset(0)[] = 0
         var result = lib.init_drivers(Int(count_buf), Int(0))
-        if result.is_error() or count_buf[0] == 0:
-            count_buf.free()
+        if result.is_error() or count_buf.unsafe_offset(0)[] == 0:
+            count_buf.unsafe_free()
             raise Error("No Level Zero drivers found")
-        var count = Int(count_buf[0])
+        var count = Int(count_buf.unsafe_offset(0)[])
 
-        var drivers = alloc[Int](count)
+        var drivers = unsafe_alloc[Int](count)
         result = lib.init_drivers(Int(count_buf), Int(drivers))
-        count_buf.free()
+        count_buf.unsafe_free()
         if result.is_error():
-            drivers.free()
+            drivers.unsafe_free()
             raise Error("Failed to get drivers")
 
         var driver_list = List[Int]()
         for i in range(count):
-            driver_list.append(drivers[i])
-        drivers.free()
+            driver_list.append(drivers.unsafe_offset(i)[])
+        drivers.unsafe_free()
         return driver_list^
 
     def _find_first_gpu_device(self, lib: LevelZeroLibrary,
@@ -76,38 +76,73 @@ struct IntelGPUDetector:
         Raises if no GPU found.
         """
         for d in range(len(drivers)):
-            var dev_count_buf = alloc[UInt32](1)
-            dev_count_buf[0] = 0
+            var dev_count_buf = unsafe_alloc[UInt32](1)
+            dev_count_buf.unsafe_offset(0)[] = 0
             var result = lib.device_get(drivers[d], Int(dev_count_buf), Int(0))
-            if result.is_error() or dev_count_buf[0] == 0:
-                dev_count_buf.free()
+            if result.is_error() or dev_count_buf.unsafe_offset(0)[] == 0:
+                dev_count_buf.unsafe_free()
                 continue
-            var device_count = Int(dev_count_buf[0])
+            var device_count = Int(dev_count_buf.unsafe_offset(0)[])
 
-            var devices = alloc[Int](device_count)
+            var devices = unsafe_alloc[Int](device_count)
             result = lib.device_get(drivers[d], Int(dev_count_buf), Int(devices))
-            dev_count_buf.free()
+            dev_count_buf.unsafe_free()
             if result.is_error():
-                devices.free()
+                devices.unsafe_free()
                 continue
 
             for i in range(device_count):
-                var props = alloc[Int8](400)
-                memset(props, 0, 400)
-                props.bitcast[UInt32]()[0] = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
-                var prop_result = lib.device_get_properties(devices[i], Int(props))
+                var props = unsafe_alloc[Int8](400)
+                unsafe_memset(props, 0, 400)
+                props.unsafe_bitcast[UInt32]().unsafe_offset(0)[] = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
+                var prop_result = lib.device_get_properties(devices.unsafe_offset(i)[], Int(props))
                 if prop_result.is_success():
-                    var dtype = props.bitcast[UInt32]()[4]
+                    var dtype = props.unsafe_bitcast[UInt32]().unsafe_offset(4)[]
                     if dtype == ZeDeviceType.GPU:
                         var driver = drivers[d]
-                        var device = devices[i]
-                        devices.free()
-                        return _GPUDeviceResult(driver, device, Int(props))
-                props.free()
+                        var device = devices.unsafe_offset(i)[]
+                        devices.unsafe_free()
+                        return _GPUDeviceResult(driver, device, props)
+                props.unsafe_free()
 
-            devices.free()
+            devices.unsafe_free()
 
         raise Error("No Intel GPU found")
+
+    def _count_gpu_devices(self, lib: LevelZeroLibrary,
+                           drivers: List[Int]) raises -> Int:
+        """Count GPU devices across all drivers."""
+        var gpu_count = 0
+        for d in range(len(drivers)):
+            var dev_count_buf = unsafe_alloc[UInt32](1)
+            dev_count_buf.unsafe_offset(0)[] = 0
+            var result = lib.device_get(drivers[d], Int(dev_count_buf), Int(0))
+            if result.is_error() or dev_count_buf.unsafe_offset(0)[] == 0:
+                dev_count_buf.unsafe_free()
+                continue
+            var device_count = Int(dev_count_buf.unsafe_offset(0)[])
+
+            var devices = unsafe_alloc[Int](device_count)
+            result = lib.device_get(drivers[d], Int(dev_count_buf), Int(devices))
+            dev_count_buf.unsafe_free()
+            if result.is_error():
+                devices.unsafe_free()
+                continue
+
+            for i in range(device_count):
+                var props = unsafe_alloc[Int8](400)
+                unsafe_memset(props, 0, 400)
+                props.unsafe_bitcast[UInt32]().unsafe_offset(0)[] = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
+                var prop_result = lib.device_get_properties(devices.unsafe_offset(i)[], Int(props))
+                if prop_result.is_success():
+                    var dtype = props.unsafe_bitcast[UInt32]().unsafe_offset(4)[]
+                    if dtype == ZeDeviceType.GPU:
+                        gpu_count += 1
+                props.unsafe_free()
+
+            devices.unsafe_free()
+
+        return gpu_count
 
     # =========================================================================
     # Public API
@@ -128,38 +163,7 @@ struct IntelGPUDetector:
         try:
             var lib = LevelZeroLibrary()
             var drivers = self._get_drivers(lib)
-
-            var gpu_count = 0
-            for d in range(len(drivers)):
-                var dev_count_buf = alloc[UInt32](1)
-                dev_count_buf[0] = 0
-                var result = lib.device_get(drivers[d], Int(dev_count_buf), Int(0))
-                if result.is_error() or dev_count_buf[0] == 0:
-                    dev_count_buf.free()
-                    continue
-                var device_count = Int(dev_count_buf[0])
-
-                var devices = alloc[Int](device_count)
-                result = lib.device_get(drivers[d], Int(dev_count_buf), Int(devices))
-                dev_count_buf.free()
-                if result.is_error():
-                    devices.free()
-                    continue
-
-                for i in range(device_count):
-                    var props = alloc[Int8](400)
-                    memset(props, 0, 400)
-                    props.bitcast[UInt32]()[0] = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
-                    var prop_result = lib.device_get_properties(devices[i], Int(props))
-                    if prop_result.is_success():
-                        var dtype = props.bitcast[UInt32]()[4]
-                        if dtype == ZeDeviceType.GPU:
-                            gpu_count += 1
-                    props.free()
-
-                devices.free()
-
-            return gpu_count
+            return self._count_gpu_devices(lib, drivers)
         except:
             return 0
 
@@ -170,19 +174,19 @@ struct IntelGPUDetector:
         var found = self._find_first_gpu_device(lib, drivers)
         var props = found.props_buffer
 
-        var u32 = UnsafePointer[UInt32, MutExternalOrigin](unsafe_from_address=props)
-        var u64 = UnsafePointer[UInt64, MutExternalOrigin](unsafe_from_address=props)
+        var u32 = props.unsafe_bitcast[UInt32]()
+        var u64 = props.unsafe_bitcast[UInt64]()
 
-        var vendor_id = u32[5]
-        var device_id = u32[6]
-        var device_type = ZeDeviceType(u32[4])
-        var clock = u32[9]
-        var max_mem = u64[5]
+        var vendor_id = u32.unsafe_offset(5)[]
+        var device_id = u32.unsafe_offset(6)[]
+        var device_type = ZeDeviceType(u32.unsafe_offset(4)[])
+        var clock = u32.unsafe_offset(9)[]
+        var max_mem = u64.unsafe_offset(5)[]
 
         var name = ""
-        var np = UnsafePointer[Int8, MutExternalOrigin](unsafe_from_address=props + 112)
+        var np = props.unsafe_offset(112)
         for j in range(256):
-            var ch = np[j]
+            var ch = np.unsafe_offset(j)[]
             if ch == 0:
                 break
             name += chr(Int(ch))
@@ -197,27 +201,27 @@ struct IntelGPUDetector:
         var found = self._find_first_gpu_device(lib, drivers)
         var device = found.device_handle
 
-        var cprops = alloc[Int8](200)
-        memset(cprops, 0, 200)
-        cprops.bitcast[UInt32]()[0] = ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES
+        var cprops = unsafe_alloc[Int8](200)
+        unsafe_memset(cprops, 0, 200)
+        cprops.unsafe_bitcast[UInt32]().unsafe_offset(0)[] = ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES
         var result = lib.device_get_compute_properties(device, Int(cprops))
         if result.is_error():
-            cprops.free()
+            cprops.unsafe_free()
             raise Error("Failed to get compute properties")
 
-        var u32 = cprops.bitcast[UInt32]()
-        var max_group_size = u32[4]
-        var max_group_x = u32[8]
-        var max_group_y = u32[9]
-        var max_group_z = u32[10]
-        var max_slm = u32[11]
-        var num_subgroups = u32[12]
+        var u32 = cprops.unsafe_bitcast[UInt32]()
+        var max_group_size = u32.unsafe_offset(4)[]
+        var max_group_x = u32.unsafe_offset(8)[]
+        var max_group_y = u32.unsafe_offset(9)[]
+        var max_group_z = u32.unsafe_offset(10)[]
+        var max_slm = u32.unsafe_offset(11)[]
+        var num_subgroups = u32.unsafe_offset(12)[]
 
         var subgroups = List[UInt32]()
         for i in range(min(Int(num_subgroups), 8)):
-            subgroups.append(u32[13 + i])
+            subgroups.append(u32.unsafe_offset(13 + i)[])
 
-        cprops.free()
+        cprops.unsafe_free()
 
         return ComputeProperties(max_group_size, max_group_x, max_group_y,
                                   max_group_z, max_slm, num_subgroups, subgroups^)
