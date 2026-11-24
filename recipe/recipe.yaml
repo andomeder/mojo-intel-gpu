@@ -16,16 +16,16 @@ build:
     - mkdir -p $PREFIX/lib/mojo
     - mojo precompile mojo_intel_gpu -o $PREFIX/lib/mojo/mojo_intel_gpu.mojoc
     # Compile SPIR-V kernels
-    - clang -cl-std=CL3.0 -target spirv64 -emit-llvm -c -o vector_add.bc vector_add.cl && llvm-spirv vector_add.bc -o $PREFIX/lib/mojo/vector_add.spv
-    - clang -cl-std=CL3.0 -target spirv64 -emit-llvm -c -o matmul.bc matmul.cl && llvm-spirv matmul.bc -o $PREFIX/lib/mojo/matmul.spv
-    - clang -cl-std=CL3.0 -target spirv64 -emit-llvm -c -o reduction.bc reduction.cl && llvm-spirv reduction.bc -o $PREFIX/lib/mojo/reduction.spv
+    - clang -cl-std=CL3.0 -target spirv64-unknown-unknown -emit-llvm -c -o vector_add.bc vector_add.cl && llvm-spirv vector_add.bc -o $PREFIX/lib/mojo/vector_add.spv
+    - clang -cl-std=CL3.0 -target spirv64-unknown-unknown -emit-llvm -c -o matmul.bc matmul.cl && llvm-spirv matmul.bc -o $PREFIX/lib/mojo/matmul.spv
+    - clang -cl-std=CL3.0 -target spirv64-unknown-unknown -emit-llvm -c -o reduction.bc reduction.cl && llvm-spirv reduction.bc -o $PREFIX/lib/mojo/reduction.spv
     # Copy OpenCL kernel sources
     - mkdir -p $PREFIX/share/mojo-intel-gpu/kernels
     - cp *.cl $PREFIX/share/mojo-intel-gpu/kernels/
 
 requirements:
   build:
-    - mojo >=1.0.0
+    - mojo >=1.2.0
     - clang
     - llvm
   run:
