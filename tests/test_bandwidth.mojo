@@ -1,7 +1,7 @@
 """Bandwidth tests for mojo_intel_gpu package.
 
 Measures memory transfer throughput between host and device, and device-side
-fill speed. Uses L0's native memcpy + the new memset_device wrapper.
+fill speed. Uses L0's native memcpy and the memset_device wrapper.
 
 Usage:
     mojo run -I . tests/test_bandwidth.mojo
@@ -11,6 +11,49 @@ from std.time.time import perf_counter_ns
 
 
 # ── helpers ──────────────────────────────────────────────────────────────
+
+
+@fieldwise_init
+struct Timings(Copyable, Movable):
+    """Summary of one measurement row, in microseconds."""
+    var avg_us: Float64
+    var min_us: Float64
+    var med_us: Float64
+    var max_us: Float64
+
+
+def ns_to_us(ns: UInt64) -> Float64:
+    return Float64(ns) / 1000.0
+
+
+def summarise(times: List[UInt64]) -> Timings:
+    """Summarise nanosecond samples, with the median alongside the mean."""
+    var ordered = List[UInt64]()
+    for t in times:
+        ordered.append(t)
+    sort(ordered)
+    var n = len(ordered)
+    var total: UInt64 = 0
+    for t in ordered:
+        total += t
+    var mid = n // 2
+    var median_ns = Float64(ordered[mid])
+    if n % 2 == 0:
+        median_ns = (Float64(ordered[mid - 1]) + Float64(ordered[mid])) / 2.0
+    return Timings(
+        ns_to_us(total) / Float64(n),
+        ns_to_us(ordered[0]),
+        median_ns / 1000.0,
+        ns_to_us(ordered[n - 1]),
+    )
+
+
+def to_mb(size: UInt64) -> Float64:
+    return Float64(size) / (1024.0 * 1024.0)
+
+
+def gbs(size_bytes: Float64, us: Float64) -> Float64:
+    return size_bytes / (us * 1000.0)
 
 
 def pad(s: String, width: Int) -> String:
@@ -24,36 +67,26 @@ def print_header():
     print("")
     print("=== Intel GPU Bandwidth Test ===")
     print(
-        "Test              | Size (MB)  | Avg (us)   | Min (us)   |"
-        " Avg GB/s  | Min GB/s"
+        "Test              | Size (MB) | Avg (us)  | Min (us)  | Med (us)  |"
+        " Avg GB/s | Min GB/s"
     )
     print(
-        "------------------|------------|------------|------------|"
-        "-----------|---------"
+        "------------------|-----------|-----------|-----------|-----------|"
+        "----------|---------"
     )
 
 
-def print_row(
-    name: String,
-    size_mb: Float64,
-    avg_us: Float64,
-    min_us: Float64,
-    avg_gbs: Float64,
-    min_gbs: Float64,
-):
+def print_row(name: String, size: UInt64, stats: Timings, size_bytes: Float64):
     print(
         pad(name, 17), " | ",
-        pad(String(size_mb), 8), "    | ",
-        pad(String(avg_us), 8), "   | ",
-        pad(String(min_us), 8), "   | ",
-        pad(String(avg_gbs), 7), "  | ",
-        pad(String(min_gbs), 5),
+        pad(String(to_mb(size)), 9), " | ",
+        pad(String(stats.avg_us), 9), " | ",
+        pad(String(stats.min_us), 9), " | ",
+        pad(String(stats.med_us), 9), " | ",
+        pad(String(gbs(size_bytes, stats.avg_us)), 8), " | ",
+        pad(String(gbs(size_bytes, stats.min_us)), 8),
         sep="",
     )
-
-
-def ns_to_us(ns: UInt64) -> Float64:
-    return Float64(ns) / 1000.0
 
 
 # ── tests ────────────────────────────────────────────────────────────────
@@ -61,54 +94,28 @@ def ns_to_us(ns: UInt64) -> Float64:
 
 def test_h2d_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, h_buf: Int,
                        size: UInt64, iters: Int) raises:
-    var size_f = Float64(size) / (1024.0 * 1024.0)
-    var bytes_f = Float64(size)
     var times = List[UInt64]()
     for _ in range(iters):
         var t0 = perf_counter_ns()
         ctx.memcpy_htod(d_buf, h_buf, size)
         var t1 = perf_counter_ns()
         times.append(UInt64(t1 - t0))
-    var total: UInt64 = 0
-    var mn: UInt64 = UInt64.MAX
-    for i in range(iters):
-        total += times[i]
-        if times[i] < mn:
-            mn = times[i]
-    var avg_us = ns_to_us(total) / Float64(iters)
-    var min_us = ns_to_us(mn)
-    var avg_gbs = bytes_f / (avg_us * 1000.0)
-    var min_gbs = bytes_f / (min_us * 1000.0)
-    print_row("H2D (PCIe)", size_f, avg_us, min_us, avg_gbs, min_gbs)
+    print_row("H2D (PCIe)", size, summarise(times), Float64(size))
 
 
 def test_d2h_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, h_buf: Int,
                        size: UInt64, iters: Int) raises:
-    var size_f = Float64(size) / (1024.0 * 1024.0)
-    var bytes_f = Float64(size)
     var times = List[UInt64]()
     for _ in range(iters):
         var t0 = perf_counter_ns()
         ctx.memcpy_dtoh(h_buf, d_buf, size)
         var t1 = perf_counter_ns()
         times.append(UInt64(t1 - t0))
-    var total: UInt64 = 0
-    var mn: UInt64 = UInt64.MAX
-    for i in range(iters):
-        total += times[i]
-        if times[i] < mn:
-            mn = times[i]
-    var avg_us = ns_to_us(total) / Float64(iters)
-    var min_us = ns_to_us(mn)
-    var avg_gbs = bytes_f / (avg_us * 1000.0)
-    var min_gbs = bytes_f / (min_us * 1000.0)
-    print_row("D2H (PCIe)", size_f, avg_us, min_us, avg_gbs, min_gbs)
+    print_row("D2H (PCIe)", size, summarise(times), Float64(size))
 
 
 def test_d2d_bandwidth(mut ctx: IntelGPUContext, d_src: Int, d_dst: Int,
                        size: UInt64, iters: Int) raises:
-    var size_f = Float64(size) / (1024.0 * 1024.0)
-    var bytes_f = Float64(size)
     var h_temp = ctx.allocate_host(size)
     var times = List[UInt64]()
     for _ in range(iters):
@@ -118,48 +125,23 @@ def test_d2d_bandwidth(mut ctx: IntelGPUContext, d_src: Int, d_dst: Int,
         var t1 = perf_counter_ns()
         times.append(UInt64(t1 - t0))
     ctx.free_host(h_temp)
-    var total: UInt64 = 0
-    var mn: UInt64 = UInt64.MAX
-    for i in range(iters):
-        total += times[i]
-        if times[i] < mn:
-            mn = times[i]
-    var avg_us = ns_to_us(total) / Float64(iters)
-    var min_us = ns_to_us(mn)
-    # 2*size worth of PCIe traffic
-    var effective = bytes_f * 2.0
-    var avg_gbs = effective / (avg_us * 1000.0)
-    var min_gbs = effective / (min_us * 1000.0)
-    print_row("D2D (via H)", size_f, avg_us, min_us, avg_gbs, min_gbs)
+    print_row("D2D (via H)", size, summarise(times), Float64(size) * 2.0)
 
 
 def test_fill_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, size: UInt64,
                         iters: Int) raises:
-    var size_f = Float64(size) / (1024.0 * 1024.0)
-    var bytes_f = Float64(size)
     var times = List[UInt64]()
     for _ in range(iters):
         var t0 = perf_counter_ns()
         ctx.memset_device(d_buf, UInt8(0), size)
         var t1 = perf_counter_ns()
         times.append(UInt64(t1 - t0))
-    var total: UInt64 = 0
-    var mn: UInt64 = UInt64.MAX
-    for i in range(iters):
-        total += times[i]
-        if times[i] < mn:
-            mn = times[i]
-    var avg_us = ns_to_us(total) / Float64(iters)
-    var min_us = ns_to_us(mn)
-    var avg_gbs = bytes_f / (avg_us * 1000.0)
-    var min_gbs = bytes_f / (min_us * 1000.0)
-    print_row("Fill (write)", size_f, avg_us, min_us, avg_gbs, min_gbs)
+    print_row("Fill (write)", size, summarise(times), Float64(size))
 
 
 def test_kernel_copy(mut ctx: IntelGPUContext, mut kernel: Kernel,
                      d_src: Int, d_dst: Int, n: Int, iters: Int) raises:
-    var size_f = Float64(n * 4) / (1024.0 * 1024.0)
-    var bytes_f = Float64(n * 4)
+    var size = UInt64(n * 4)
     var group_size = UInt32(256)
     var num_groups = UInt32((n + 255) / 256)
 
@@ -172,17 +154,14 @@ def test_kernel_copy(mut ctx: IntelGPUContext, mut kernel: Kernel,
     kernel.launch(ZeGroupCount(num_groups, 1, 1))
     ctx.synchronize()
 
-    # Time kernel launch (no sync per launch)
-    var t0 = perf_counter_ns()
+    var times = List[UInt64]()
     for _ in range(iters):
+        var t0 = perf_counter_ns()
         kernel.launch(ZeGroupCount(num_groups, 1, 1))
-    var t1 = perf_counter_ns()
+        var t1 = perf_counter_ns()
+        times.append(UInt64(t1 - t0))
     ctx.synchronize()
-
-    var total_ns = UInt64(t1 - t0)
-    var avg_us = ns_to_us(total_ns) / Float64(iters)
-    var avg_gbs = bytes_f / (avg_us * 1000.0)
-    print_row("vec_copy kernel", size_f, avg_us, avg_us, avg_gbs, avg_gbs)
+    print_row("vec_copy dispatch", size, summarise(times), Float64(size))
 
 
 # ── main ─────────────────────────────────────────────────────────────────

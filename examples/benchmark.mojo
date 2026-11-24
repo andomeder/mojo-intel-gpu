@@ -284,7 +284,7 @@ def bench_kernel_dispatch(mut ctx: IntelGPUContext, iters: Int) raises:
 
 
 def bench_e2e_vector_add(mut ctx: IntelGPUContext, iters: Int) raises:
-    """Time end-to-end vector_add (alloc + h2d + launch + sync + dtoh) for 1M floats."""
+    """Time end-to-end vector_add over 1M floats, allocation included."""
     var N = 1_000_000
     var bytes = UInt64(N * 4)
     var group_size = UInt32(256)
