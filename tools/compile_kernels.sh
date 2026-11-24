@@ -18,9 +18,7 @@ SRC_DIR="$PROJECT_DIR"
 echo "=== Compiling OpenCL C Kernels to SPIR-V ==="
 echo "Source directory: $SRC_DIR"
 
-# Locate the toolchain. Prefer whatever is on PATH; otherwise fall back to an
-# Intel oneAPI install, whose compiler/<ver>/bin/compiler/ directory ships a
-# matched clang + llvm-spirv pair (no extra packages needed).
+# Prefer clang and llvm-spirv on PATH, else an Intel oneAPI install.
 CLANG="$(command -v clang || true)"
 LLVM_SPIRV="$(command -v llvm-spirv || true)"
 
@@ -65,16 +63,8 @@ for cl_file in "$SRC_DIR"/*.cl; do
 
     echo "Compiling: $base_name.cl"
 
-    # Step 1: OpenCL C → LLVM bitcode
-    #
-    # `-c` is required. Without it the clang driver performs the SPIR-V *link*
-    # step, which shells out to `spirv-link` — a binary shipped neither by
-    # Intel oneAPI nor by current SPIRV-Tools/Fedora. The failure surfaces as a
-    # misleading "posix_spawn failed" / "spirv-link command failed" error.
-    #
-    # The fully-qualified triple `spirv64-unknown-unknown` is used rather than
-    # the bare `spirv64`: LLVM 21+ requires the explicit triple form. Both work
-    # on clang 22 (verified), so the qualified form covers the wider range.
+    # Step 1: OpenCL C -> LLVM bitcode. -c avoids the SPIR-V link step, which
+    # needs spirv-link; LLVM 21+ requires the qualified triple.
     if "$CLANG" -c -cl-std=CL3.0 -target spirv64-unknown-unknown -emit-llvm "$cl_file" -o "$bc_file" 2>/dev/null; then
         # Step 2: LLVM bitcode → SPIR-V
         if "$LLVM_SPIRV" "$bc_file" -o "$spv_file" 2>/dev/null; then
