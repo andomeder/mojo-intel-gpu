@@ -121,6 +121,8 @@ mojo run -I . examples/vector_add.mojo
 
 The `.venv/` is git-ignored. To remove and recreate: `rm -rf .venv && uv sync`.
 
+The tree is formatter-clean. Run `mojo format mojo_intel_gpu examples tests` before opening a PR.
+
 Note: this workflow is for editing and testing the package source. To install the published `.mojoc` in another project, use **Option A** (pixi) - Mojo packages are distributed through conda, not PyPI.
 
 ## Building the Conda Recipe
