@@ -9,6 +9,8 @@ Intel GPU support for Mojo via Level Zero FFI.
 **Tested Hardware:**
 
 - Intel Arc B580 (Battlemage Xe2) — verified working
+- Intel Arc Pro B60 (Battlemage Xe2, 24 GB), reported working by a community
+  tester; numbers below
 
 **Untested (should work with Level Zero support):**
 
@@ -18,7 +20,7 @@ Intel GPU support for Mojo via Level Zero FFI.
 
 **Requirements:**
 
-- Mojo v1.0.0+ required
+- Mojo v1.2.0+ required
 - Level Zero runtime (`libze_loader.so`)
 - Intel GPU with Level Zero support
 - Linux (kernel 6.x+)
@@ -33,6 +35,9 @@ sudo pacman -S clang llvm          # For SPIR-V compilation
 # Optional tools
 sudo pacman -S clinfo              # Check OpenCL device info
 ```
+
+With Intel oneAPI installed, `tools/compile_kernels.sh` uses its `clang` and
+`llvm-spirv` when they are not on `PATH`.
 
 ## Installation
 
@@ -341,6 +346,8 @@ Intel GPU Hardware
 
 FFI overhead is **zero** — resolved symbols are invoked through the C ABI as direct CALL instructions, identical to calling C from C.
 
+**Keep setup out of loops.** Context create and close cost about 33 ms, and `Kernel()` about 90 us, all driver round trips. Build both once and reuse them; a harness that rebuilds them per iteration measures Level Zero startup, not the kernel.
+
 **Intel Arc B580 (Battlemage Xe2) — Measured Results:**
 
 | Metric                                 | Value                                    |
@@ -348,7 +355,7 @@ FFI overhead is **zero** — resolved symbols are invoked through the C ABI as d
 | Device                                 | Intel Arc B580, 20 Xe-cores, 12 GB GDDR6 |
 | Max Group Size                         | 1024                                     |
 | Max SLM                                | 128 KB per Xe-core                       |
-| GPU init (dlopen + zeInitDrivers + discovery) | 23.7 ms (one-time) |
+| GPU init (dlopen + zeInitDrivers + discovery) | 31 ms (one-time) |
 | Device alloc (1 MB)                    | 0.25 us                                  |
 | Host alloc (1 MB)                      | 0.19 us                                  |
 | Memcpy H2D (1 MB)                      | 83.7 us avg (12.4 GB/s effective)        |
@@ -358,7 +365,6 @@ FFI overhead is **zero** — resolved symbols are invoked through the C ABI as d
 
 _Run `mojo run -I . examples/benchmark.mojo` to reproduce._
 
-
 **Comparison with published Arc B580 benchmarks:**
 
 - clpeak kernel latency (CR 25.31): 1.39 us (raw L0 only). Our 5.4 us includes Mojo FFI + 4 set_arg calls + launch + sync.
@@ -367,21 +373,33 @@ _Run `mojo run -I . examples/benchmark.mojo` to reproduce._
 
 **Updated bandwidth & latency (from `tests/test_bandwidth.mojo` and `tests/test_latency.mojo`):**
 
-| Metric                          | Min         | Avg         | Intel Published |
+| Metric                          | Min         | Median      | Intel Published |
 |---------------------------------|-------------|-------------|-----------------|
-| H2D (1 MB, PCIe Gen4 x8)        | 12.78 GB/s  | 1.13 GB/s   | 14.5 GB/s       |
-| D2H (1 MB, PCIe Gen4 x8)        | 10.66 GB/s  | 10.09 GB/s  | 14.5 GB/s       |
-| Fill (1 MB, write)              | 172 GB/s    | 43.8 GB/s   | —               |
-| D2D via host (64 MB)            | 12.72 GB/s  | 10.49 GB/s  | —               |
-| vec_copy kernel (4 MB)          | 1592 GB/s   | 1592 GB/s   | 425 GB/s        |
-| Empty kernel launch (async)     | 2.03 µs     | 2.03 µs     | 1.39 µs         |
-| Empty kernel + sync             | 4.35 µs     | 4.90 µs     | —               |
-| Synchronize only (no work)      | 0.12 µs     | 0.14 µs     | —               |
+| H2D (1 MB, PCIe Gen4 x8)        | 12.84 GB/s  | 12.19 GB/s  | 14.5 GB/s       |
+| D2H (1 MB, PCIe Gen4 x8)        | 11.11 GB/s  | 10.78 GB/s  | 14.5 GB/s       |
+| Fill (1 MB, write)              | 176 GB/s    | 173 GB/s    | —               |
+| D2D via host (64 MB)            | 12.15 GB/s  | 12.24 GB/s  | —               |
+| vec_copy dispatch (4 MB)        | 2352 GB/s   | 1920 GB/s   | —               |
+| Empty kernel launch (async)     | 1.80 µs     | 1.84 µs     | 1.39 µs         |
+| Empty kernel + sync             | 5.32 µs     | 5.75 µs     | —               |
+| Synchronize only (no work)      | 0.07 µs     | 0.07 µs     | —               |
 
 _Run `mojo run -I . tests/test_bandwidth.mojo` and `tests/test_latency.mojo` to reproduce._
 
-Note: average H2D is lower than min because the first transfer includes command list + sync setup overhead. Sustained throughput (min) matches Intel's published PCIe Gen4 x8 number within 12%.
+Note: the tests print average, minimum and median. The mean is dragged by outlier samples, most visibly the first host-to-device transfer (which pays command-list and sync setup) and the occasional scheduler hiccup on launch, so the minimum is the sustained figure and the median the typical one. Figures above are one run on an Arc B580 in November 2026; the PCIe minimums move by under 10% between runs, while fill and dispatch can move by a third. The `vec_copy` row times kernel dispatch, not execution, so its GB/s is launch rate rather than memory throughput.
 
+### Intel Arc Pro B60 (community-reported)
+
+From [@jporra](https://github.com/jporra) in [issue #1](https://github.com/andomeder/mojo-intel-gpu/issues/1). Measured independently, so indicative rather than a rerun: Mojo 1.0.0b3, v0.1.0, Ubuntu 26.04, Level Zero 1.28.2, Compute Runtime 1.14.37020, 24 GB per card, one device per context so the second card went unused. Examples and benchmark gave correct results.
+
+| Metric                            | B60 (reported) | B580 (here)            |
+| --------------------------------- | -------------- | ---------------------- |
+| Memcpy H2D (1 MB)                 | 83.6 us        | 83.7 us avg            |
+| Memcpy D2H (1 MB)                 | 100 us         | 107.6 us avg           |
+| Kernel dispatch (set+launch+sync) | 7.6 us         | 6.9 us avg, 5.4 us min |
+| E2E vector_add (1M floats)        | 2.89 ms        | 1.3 ms avg, 1.0 ms min |
+
+Allocation rows are left out. They sit two orders of magnitude off the B580 figures, which points at what was timed rather than the card, and the raw output is still pending.
 
 ## Troubleshooting
 
