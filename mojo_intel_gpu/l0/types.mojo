@@ -10,7 +10,7 @@ All struct sizes and field offsets are verified against the C headers.
 # =============================================================================
 
 @fieldwise_init
-struct ZeResult(Copyable, Movable, Writable, Equatable):
+struct ZeResult(Copyable, Equatable, Movable, Writable):
     """Level Zero result code wrapper."""
     var value: UInt32
 

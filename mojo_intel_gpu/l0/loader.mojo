@@ -284,18 +284,18 @@ struct LevelZeroLibrary(Movable):
     def memcpy_htod(self, cmdlist: Int, dst_device: Int, src_host: Int,
                      size: UInt64) -> ZeResult:
         """Copy host to device (synchronous via immediate command list)."""
-        var result = self._memcpy(
-            cmdlist, dst_device, src_host, size, Int(0), UInt32(0), Int(0)
-        )
-        if result != 0:
-            return Self._check(result)
-        return Self._check(self._host_synchronize(cmdlist, UInt64(0xFFFFFFFFFFFFFFFF)))
+        return self._copy_sync(cmdlist, dst_device, src_host, size)
 
     def memcpy_dtoh(self, cmdlist: Int, dst_host: Int, src_device: Int,
                      size: UInt64) -> ZeResult:
         """Copy device to host (synchronous via immediate command list)."""
+        return self._copy_sync(cmdlist, dst_host, src_device, size)
+
+    def _copy_sync(self, cmdlist: Int, dst: Int, src: Int,
+                    size: UInt64) -> ZeResult:
+        """Append a memory copy and wait for it to finish."""
         var result = self._memcpy(
-            cmdlist, dst_host, src_device, size, Int(0), UInt32(0), Int(0)
+            cmdlist, dst, src, size, Int(0), UInt32(0), Int(0)
         )
         if result != 0:
             return Self._check(result)

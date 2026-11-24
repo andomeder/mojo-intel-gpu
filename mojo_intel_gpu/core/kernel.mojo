@@ -37,7 +37,6 @@ struct Kernel(Movable):
     var _module: Int
     var _kernel: Int
     var _spv_data: List[UInt8]
-    var _kernel_name: String
 
     def __init__(out self, lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin],
                  context: Int, device: Int,
@@ -62,7 +61,6 @@ struct Kernel(Movable):
         self._module = Int(0)
         self._kernel = Int(0)
         self._spv_data = List[UInt8]()
-        self._kernel_name = kernel_name
 
         # Read SPIR-V binary
         var path = Path(spirv_path)
@@ -93,7 +91,6 @@ struct Kernel(Movable):
             raise Error("Module creation failed: " + String(result))
         self._module = module_out.unsafe_offset(0)[]
         module_out.unsafe_free()
-
 
         var kernel_out = unsafe_alloc[Int](1)
         kernel_out.unsafe_offset(0)[] = 0

@@ -237,7 +237,7 @@ struct IntelGPUContext(Movable):
         return self._cmdlist
 
     def library(self) -> Pointer[LevelZeroLibrary, ImmUntrackedOrigin]:
-        """Get a borrowed, non-owning reference to the shared Level Zero library."""
+        """Borrowed, non-owning view of the shared Level Zero library."""
         return Pointer(to=self._lib).unsafe_origin_cast[ImmUntrackedOrigin]()
 
     def device_info(self) -> DeviceProperties:
