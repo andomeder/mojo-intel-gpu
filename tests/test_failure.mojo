@@ -15,11 +15,8 @@ def main() raises:
     # Double close is idempotent
     var ctx = IntelGPUContext()
     ctx.close()
-    try:
-        ctx.close()
-        print("  [OK] double close is safe"); pass_count += 1
-    except:
-        print("  [FAIL] double close raised"); fail_count += 1
+    ctx.close()
+    print("  [OK] double close is safe"); pass_count += 1
 
     # Zero-size allocation should not crash
     var ctx2 = IntelGPUContext()
@@ -33,7 +30,7 @@ def main() raises:
 
     # Nonexistent SPIR-V file
     try:
-        var k = Kernel(ctx2.library(), ctx2.context(), ctx2.device(), ctx2.command_list(), "./nonexistent.spv", "foo")
+        _ = Kernel(ctx2.library(), ctx2.context(), ctx2.device(), ctx2.command_list(), "./nonexistent.spv", "foo")
         print("  [FAIL] nonexistent SPIR-V did not raise"); fail_count += 1
     except:
         print("  [OK] nonexistent SPIR-V raised");
@@ -41,7 +38,7 @@ def main() raises:
 
     # Invalid SPIR-V (non-SPIRV file) must raise cleanly, not abort
     try:
-        var k2 = Kernel(ctx2.library(), ctx2.context(), ctx2.device(), ctx2.command_list(), "./README.md", "foo")
+        _ = Kernel(ctx2.library(), ctx2.context(), ctx2.device(), ctx2.command_list(), "./README.md", "foo")
         print("  [FAIL] invalid SPIR-V did not raise"); fail_count += 1
     except:
         print("  [OK] invalid SPIR-V raised cleanly");

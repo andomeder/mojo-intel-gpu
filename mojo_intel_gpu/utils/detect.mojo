@@ -14,12 +14,10 @@ from ..l0.loader import LevelZeroLibrary
 
 struct _GPUDeviceResult(Movable):
     """Internal result from GPU device search."""
-    var driver_handle: Int
     var device_handle: Int
     var props_buffer: Pointer[Int8, MutUntrackedOrigin]
 
-    def __init__(out self, driver: Int, device: Int, props: Pointer[Int8, MutUntrackedOrigin]):
-        self.driver_handle = driver
+    def __init__(out self, device: Int, props: Pointer[Int8, MutUntrackedOrigin]):
         self.device_handle = device
         self.props_buffer = props
 
@@ -99,10 +97,9 @@ struct IntelGPUDetector:
                 if prop_result.is_success():
                     var dtype = props.unsafe_bitcast[UInt32]().unsafe_offset(4)[]
                     if dtype == ZeDeviceType.GPU:
-                        var driver = drivers[d]
                         var device = devices.unsafe_offset(i)[]
                         devices.unsafe_free()
-                        return _GPUDeviceResult(driver, device, props)
+                        return _GPUDeviceResult(device, props)
                 props.unsafe_free()
 
             devices.unsafe_free()
@@ -153,7 +150,7 @@ struct IntelGPUDetector:
         try:
             var lib = LevelZeroLibrary()
             var drivers = self._get_drivers(lib)
-            var result = self._find_first_gpu_device(lib, drivers)
+            _ = self._find_first_gpu_device(lib, drivers)
             return True
         except:
             return False
@@ -229,11 +226,8 @@ struct IntelGPUDetector:
 
 def detect_intel_gpu() -> Bool:
     """Quick check if an Intel GPU is available."""
-    try:
-        var detector = IntelGPUDetector()
-        return detector.has_gpu()
-    except:
-        return False
+    var detector = IntelGPUDetector()
+    return detector.has_gpu()
 
 
 def print_gpu_info() raises:
