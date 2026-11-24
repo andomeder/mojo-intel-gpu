@@ -21,8 +21,7 @@ def print_header():
         " Iterations"
     )
     print(
-        "-----------------------|-----------|-----------|-----------|"
-        "----------"
+        "-----------------------|-----------|-----------|-----------|----------"
     )
 
 
@@ -38,10 +37,14 @@ def print_row(
     while padded.byte_length() < 22:
         padded += " "
     print(
-        padded, " | ",
-        avg_us, " | ",
-        min_us, " | ",
-        max_us, " | ",
+        padded,
+        " | ",
+        avg_us,
+        " | ",
+        min_us,
+        " | ",
+        max_us,
+        " | ",
         iters,
         sep="",
     )
@@ -232,8 +235,12 @@ def bench_kernel_dispatch(mut ctx: IntelGPUContext, iters: Int) raises:
 
     # Load kernel once
     var kernel = Kernel(
-        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-        "./vector_add.spv", "vector_add",
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./vector_add.spv",
+        "vector_add",
     )
 
     var group_size = UInt32(256)
@@ -300,8 +307,12 @@ def bench_e2e_vector_add(mut ctx: IntelGPUContext, iters: Int) raises:
     ctx.memcpy_htod(w_a, wh_a, bytes)
     ctx.memcpy_htod(w_b, wh_b, bytes)
     var wkr = Kernel(
-        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-        "./vector_add.spv", "vector_add",
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./vector_add.spv",
+        "vector_add",
     )
     wkr.set_arg_pointer(0, w_a)
     wkr.set_arg_pointer(1, w_b)
@@ -336,8 +347,12 @@ def bench_e2e_vector_add(mut ctx: IntelGPUContext, iters: Int) raises:
 
         # Launch
         var kr = Kernel(
-            ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-            "./vector_add.spv", "vector_add",
+            ctx.library(),
+            ctx.context(),
+            ctx.device(),
+            ctx.command_list(),
+            "./vector_add.spv",
+            "vector_add",
         )
         kr.set_arg_pointer(0, da)
         kr.set_arg_pointer(1, db)

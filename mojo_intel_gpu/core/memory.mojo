@@ -26,8 +26,13 @@ struct DeviceBuffer[T: AnyType](Movable):
     var _lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin]
     var _context: Int
 
-    def __init__(out self, lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin],
-                 context: Int, device: Int, count: Int) raises:
+    def __init__(
+        out self,
+        lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin],
+        context: Int,
+        device: Int,
+        count: Int,
+    ) raises:
         """Allocate device memory for `count` elements of type T.
 
         Args:
@@ -40,7 +45,9 @@ struct DeviceBuffer[T: AnyType](Movable):
             Error: If allocation fails.
         """
         if count <= 0:
-            raise Error("Device buffer count must be positive, got " + String(count))
+            raise Error(
+                "Device buffer count must be positive, got " + String(count)
+            )
         self._lib = lib
         self._context = context
         self._count = count
@@ -50,8 +57,7 @@ struct DeviceBuffer[T: AnyType](Movable):
         ptr_buf.unsafe_offset(0)[] = 0
         var size = UInt64(count) * UInt64(size_of[Self.T]())
         var result = self._lib[].mem_alloc_device(
-            context, size, 64, device,
-            Int(ptr_buf)
+            context, size, 64, device, Int(ptr_buf)
         )
         self._ptr = ptr_buf.unsafe_offset(0)[]
         ptr_buf.unsafe_free()
@@ -97,8 +103,12 @@ struct HostBuffer[T: ImplicitlyCopyable & Deinitable](Movable):
     var _lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin]
     var _context: Int
 
-    def __init__(out self, lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin],
-                 context: Int, count: Int) raises:
+    def __init__(
+        out self,
+        lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin],
+        context: Int,
+        count: Int,
+    ) raises:
         """Allocate host memory for `count` elements of type T.
 
         Args:
@@ -110,7 +120,9 @@ struct HostBuffer[T: ImplicitlyCopyable & Deinitable](Movable):
             Error: If allocation fails.
         """
         if count <= 0:
-            raise Error("Host buffer count must be positive, got " + String(count))
+            raise Error(
+                "Host buffer count must be positive, got " + String(count)
+            )
         self._lib = lib
         self._context = context
         self._count = count
@@ -119,10 +131,7 @@ struct HostBuffer[T: ImplicitlyCopyable & Deinitable](Movable):
         var ptr_buf = unsafe_alloc[Int](1)
         ptr_buf.unsafe_offset(0)[] = 0
         var size = UInt64(count) * UInt64(size_of[Self.T]())
-        var result = self._lib[].mem_alloc_host(
-            context, size, 64,
-            Int(ptr_buf)
-        )
+        var result = self._lib[].mem_alloc_host(context, size, 64, Int(ptr_buf))
         self._ptr = ptr_buf.unsafe_offset(0)[]
         ptr_buf.unsafe_free()
         if result.is_error():
@@ -143,7 +152,9 @@ struct HostBuffer[T: ImplicitlyCopyable & Deinitable](Movable):
         The returned pointer does not track the buffer's lifetime. It is valid
         only while `self` is alive and must not outlive the buffer.
         """
-        return Pointer[Self.T, MutUntrackedOrigin](unsafe_from_address=self._ptr)
+        return Pointer[Self.T, MutUntrackedOrigin](
+            unsafe_from_address=self._ptr
+        )
 
     def count(self) -> Int:
         """Get the number of elements."""
@@ -161,12 +172,16 @@ struct HostBuffer[T: ImplicitlyCopyable & Deinitable](Movable):
         """Read an element at index (bounds-checked)."""
         if idx < 0 or idx >= self._count:
             raise Error("Host buffer index out of range: " + String(idx))
-        var p = Pointer[Self.T, MutUntrackedOrigin](unsafe_from_address=self._ptr)
+        var p = Pointer[Self.T, MutUntrackedOrigin](
+            unsafe_from_address=self._ptr
+        )
         return p.unsafe_offset(idx)[]
 
     def __setitem__(mut self, idx: Int, value: Self.T) raises:
         """Write an element at index (bounds-checked)."""
         if idx < 0 or idx >= self._count:
             raise Error("Host buffer index out of range: " + String(idx))
-        var p = Pointer[Self.T, MutUntrackedOrigin](unsafe_from_address=self._ptr)
+        var p = Pointer[Self.T, MutUntrackedOrigin](
+            unsafe_from_address=self._ptr
+        )
         p.unsafe_offset(idx)[] = value

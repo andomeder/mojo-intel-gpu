@@ -30,6 +30,7 @@ struct Kernel(Movable):
     must outlive every Kernel created from it; destroying the context
     first makes any later use or deinit of the Kernel undefined behavior.
     """
+
     var _lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin]
     var _context: Int
     var _device: Int
@@ -38,9 +39,15 @@ struct Kernel(Movable):
     var _kernel: Int
     var _spv_data: List[UInt8]
 
-    def __init__(out self, lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin],
-                 context: Int, device: Int,
-                 cmdlist: Int, spirv_path: String, kernel_name: String) raises:
+    def __init__(
+        out self,
+        lib: Pointer[LevelZeroLibrary, ImmUntrackedOrigin],
+        context: Int,
+        device: Int,
+        cmdlist: Int,
+        spirv_path: String,
+        kernel_name: String,
+    ) raises:
         """Load a SPIR-V kernel from file.
 
         Args:
@@ -81,10 +88,11 @@ struct Kernel(Movable):
         var module_out = unsafe_alloc[Int](1)
         module_out.unsafe_offset(0)[] = 0
         var result = self._lib[].module_create(
-            context, device,
+            context,
+            device,
             Int(self._spv_data.unsafe_ptr()),
             UInt64(len(self._spv_data)),
-            Int(module_out)
+            Int(module_out),
         )
         if result.is_error():
             module_out.unsafe_free()
@@ -95,9 +103,7 @@ struct Kernel(Movable):
         var kernel_out = unsafe_alloc[Int](1)
         kernel_out.unsafe_offset(0)[] = 0
         result = self._lib[].kernel_create(
-            self._module,
-            Int(kernel_name.unsafe_ptr()),
-            Int(kernel_out)
+            self._module, Int(kernel_name.unsafe_ptr()), Int(kernel_out)
         )
         if result.is_error():
             kernel_out.unsafe_free()
@@ -148,10 +154,16 @@ struct Kernel(Movable):
             self._kernel, index, UInt64(8), UInt64(device_ptr)
         )
         if result.is_error():
-            raise Error("Failed to set kernel arg " + String(index) +
-                       ": " + String(result))
+            raise Error(
+                "Failed to set kernel arg "
+                + String(index)
+                + ": "
+                + String(result)
+            )
 
-    def set_arg_value(mut self, index: UInt32, size: UInt64, value: UInt64) raises:
+    def set_arg_value(
+        mut self, index: UInt32, size: UInt64, value: UInt64
+    ) raises:
         """Set a kernel argument to a scalar value.
 
         Args:
@@ -178,15 +190,29 @@ struct Kernel(Movable):
         """Set a UInt32 kernel argument."""
         self._set_arg_value_impl(index, UInt64(4), UInt64(value))
 
-    def _set_arg_value_impl(mut self, index: UInt32, size: UInt64, value: UInt64) raises:
-        if size != UInt64(1) and size != UInt64(2) and size != UInt64(4) and size != UInt64(8):
-            raise Error("Kernel arg size must be 1, 2, 4, or 8 bytes, got " + String(size))
+    def _set_arg_value_impl(
+        mut self, index: UInt32, size: UInt64, value: UInt64
+    ) raises:
+        if (
+            size != UInt64(1)
+            and size != UInt64(2)
+            and size != UInt64(4)
+            and size != UInt64(8)
+        ):
+            raise Error(
+                "Kernel arg size must be 1, 2, 4, or 8 bytes, got "
+                + String(size)
+            )
         var result = self._lib[].kernel_set_arg_value(
             self._kernel, index, size, value
         )
         if result.is_error():
-            raise Error("Failed to set kernel arg " + String(index) +
-                       ": " + String(result))
+            raise Error(
+                "Failed to set kernel arg "
+                + String(index)
+                + ": "
+                + String(result)
+            )
 
     def set_group_size(mut self, x: UInt32, y: UInt32, z: UInt32) raises:
         """Set the kernel group size.
@@ -217,11 +243,12 @@ struct Kernel(Movable):
             Error: If launch fails.
         """
         var result = self._lib[].command_list_append_launch_kernel(
-            self._cmdlist, self._kernel, group_count,
+            self._cmdlist,
+            self._kernel,
+            group_count,
             Int(0),  # signal_event
             Int(0),  # wait_events
-            UInt32(0)  # num_wait_events
+            UInt32(0),  # num_wait_events
         )
         if result.is_error():
             raise Error("Kernel launch failed: " + String(result))
-

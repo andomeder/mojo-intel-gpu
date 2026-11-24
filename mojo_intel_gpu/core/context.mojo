@@ -6,8 +6,11 @@ Handles driver initialization, device selection, and resource cleanup.
 from std.memory import Pointer, unsafe_memset
 from std.memory.alloc import unsafe_alloc
 from ..l0.types import (
-    ZeDeviceType, DeviceProperties, ComputeProperties,
-    ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES, ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES,
+    ZeDeviceType,
+    DeviceProperties,
+    ComputeProperties,
+    ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES,
+    ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES,
     ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES,
     ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE,
 )
@@ -17,6 +20,7 @@ from ..l0.loader import LevelZeroLibrary
 @fieldwise_init
 struct IntelGPUDevice(Copyable, Movable, Writable):
     """Represents a discovered Intel GPU device."""
+
     var handle: Int
     var properties: DeviceProperties
     var compute: ComputeProperties
@@ -37,6 +41,7 @@ struct IntelGPUContext(Movable):
         # ... use GPU ...
         ctx.close()
     """
+
     var _lib: LevelZeroLibrary
     var _driver: Int
     var _device: Int
@@ -86,14 +91,18 @@ struct IntelGPUContext(Movable):
             # Get devices for this driver
             var dev_count_buf = unsafe_alloc[UInt32](1)
             dev_count_buf.unsafe_offset(0)[] = 0
-            result = self._lib.device_get(drivers.unsafe_offset(d)[], Int(dev_count_buf), Int(0))
+            result = self._lib.device_get(
+                drivers.unsafe_offset(d)[], Int(dev_count_buf), Int(0)
+            )
             if result.is_error() or dev_count_buf.unsafe_offset(0)[] == 0:
                 dev_count_buf.unsafe_free()
                 continue
             var device_count = dev_count_buf.unsafe_offset(0)[]
 
             var devices = unsafe_alloc[Int](Int(device_count))
-            result = self._lib.device_get(drivers.unsafe_offset(d)[], Int(dev_count_buf), Int(devices))
+            result = self._lib.device_get(
+                drivers.unsafe_offset(d)[], Int(dev_count_buf), Int(devices)
+            )
             dev_count_buf.unsafe_free()
             if result.is_error():
                 devices.unsafe_free()
@@ -103,10 +112,16 @@ struct IntelGPUContext(Movable):
             for i in range(Int(device_count)):
                 var props = unsafe_alloc[Int8](400)
                 unsafe_memset(props, 0, 400)
-                props.unsafe_bitcast[UInt32]().unsafe_offset(0)[] = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
-                var prop_result = self._lib.device_get_properties(devices.unsafe_offset(i)[], Int(props))
+                props.unsafe_bitcast[UInt32]().unsafe_offset(
+                    0
+                )[] = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES
+                var prop_result = self._lib.device_get_properties(
+                    devices.unsafe_offset(i)[], Int(props)
+                )
                 if prop_result.is_success():
-                    var dtype = props.unsafe_bitcast[UInt32]().unsafe_offset(4)[]  # type field (offset 16: stype+pad+pNext)
+                    var dtype = props.unsafe_bitcast[UInt32]().unsafe_offset(
+                        4
+                    )[]  # type field (offset 16: stype+pad+pNext)
                     if dtype == ZeDeviceType.GPU:
                         self._device = devices.unsafe_offset(i)[]
                         self._driver = drivers.unsafe_offset(d)[]
@@ -127,8 +142,12 @@ struct IntelGPUContext(Movable):
         # Get compute properties
         var cprops = unsafe_alloc[Int8](200)
         unsafe_memset(cprops, 0, 200)
-        cprops.unsafe_bitcast[UInt32]().unsafe_offset(0)[] = ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES
-        result = self._lib.device_get_compute_properties(self._device, Int(cprops))
+        cprops.unsafe_bitcast[UInt32]().unsafe_offset(
+            0
+        )[] = ZE_STRUCTURE_TYPE_DEVICE_COMPUTE_PROPERTIES
+        result = self._lib.device_get_compute_properties(
+            self._device, Int(cprops)
+        )
         if result.is_success():
             self._compute_info = self._parse_compute_properties(cprops)
         cprops.unsafe_free()
@@ -138,20 +157,32 @@ struct IntelGPUContext(Movable):
         var qg_count_buf = unsafe_alloc[UInt32](1)
         qg_count_buf.unsafe_offset(0)[] = 0
         result = self._lib.device_get_command_queue_group_properties(
-            self._device, Int(qg_count_buf), Int(0))
+            self._device, Int(qg_count_buf), Int(0)
+        )
         if result.is_success() and qg_count_buf.unsafe_offset(0)[] > 0:
             var qg_count = qg_count_buf.unsafe_offset(0)[]
             # ze_command_queue_group_properties_t: stype(4)+pad(4)+pNext(8)+flags(4)+pad(4)+maxMemoryFillPatternSize(8)+numQueues(4)+pad(4) = 40 bytes
             var qg_props = unsafe_alloc[Int8](Int(qg_count) * 40)
             unsafe_memset(qg_props, 0, Int(qg_count) * 40)
             for q in range(Int(qg_count)):
-                qg_props.unsafe_offset(q * 40).unsafe_bitcast[UInt32]().unsafe_offset(0)[] = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES
+                qg_props.unsafe_offset(q * 40).unsafe_bitcast[
+                    UInt32
+                ]().unsafe_offset(
+                    0
+                )[] = ZE_STRUCTURE_TYPE_COMMAND_QUEUE_GROUP_PROPERTIES
             result = self._lib.device_get_command_queue_group_properties(
-                self._device, Int(qg_count_buf), Int(qg_props))
+                self._device, Int(qg_count_buf), Int(qg_props)
+            )
             if result.is_success():
                 for q in range(Int(qg_count)):
-                    var flags = qg_props.unsafe_offset(q * 40).unsafe_bitcast[UInt32]().unsafe_offset(4)[]  # flags at offset 16
-                    if (flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE) != 0:
+                    var flags = (
+                        qg_props.unsafe_offset(q * 40)
+                        .unsafe_bitcast[UInt32]()
+                        .unsafe_offset(4)[]
+                    )  # flags at offset 16
+                    if (
+                        flags & ZE_COMMAND_QUEUE_GROUP_PROPERTY_FLAG_COMPUTE
+                    ) != 0:
                         compute_ordinal = UInt32(q)
                         break
             qg_props.unsafe_free()
@@ -181,7 +212,9 @@ struct IntelGPUContext(Movable):
         self._cmdlist = cmd_buf.unsafe_offset(0)[]
         cmd_buf.unsafe_free()
 
-    def _parse_device_properties(self, raw: Pointer[Int8, MutUntrackedOrigin]) -> DeviceProperties:
+    def _parse_device_properties(
+        self, raw: Pointer[Int8, MutUntrackedOrigin]
+    ) -> DeviceProperties:
         """Parse raw device properties buffer into DeviceProperties struct."""
         var u32 = raw.unsafe_bitcast[UInt32]()
         var u64 = raw.unsafe_bitcast[UInt64]()
@@ -193,20 +226,28 @@ struct IntelGPUContext(Movable):
         var max_mem = u64.unsafe_offset(5)[]  # byte offset 40
 
         var name = ""
-        var np = raw.unsafe_offset(112).unsafe_bitcast[Int8]()  # name at byte 112
+        var np = raw.unsafe_offset(112).unsafe_bitcast[
+            Int8
+        ]()  # name at byte 112
         for i in range(256):
             var ch = np.unsafe_offset(i)[]
             if ch == 0:
                 break
             name += chr(Int(ch))
 
-        return DeviceProperties(vendor_id, device_id, dtype^, clock, max_mem, name)
+        return DeviceProperties(
+            vendor_id, device_id, dtype^, clock, max_mem, name
+        )
 
-    def _parse_compute_properties(self, raw: Pointer[Int8, MutUntrackedOrigin]) -> ComputeProperties:
+    def _parse_compute_properties(
+        self, raw: Pointer[Int8, MutUntrackedOrigin]
+    ) -> ComputeProperties:
         """Parse raw compute properties buffer."""
         var u32 = raw.unsafe_bitcast[UInt32]()
 
-        var max_group_size = u32.unsafe_offset(4)[]  # after stype(4)+pad(4)+pNext(8)
+        var max_group_size = u32.unsafe_offset(
+            4
+        )[]  # after stype(4)+pad(4)+pNext(8)
         var max_group_x = u32.unsafe_offset(8)[]  # maxGroupCountX
         var max_group_y = u32.unsafe_offset(9)[]  # maxGroupCountY
         var max_group_z = u32.unsafe_offset(10)[]  # maxGroupCountZ
@@ -217,8 +258,15 @@ struct IntelGPUContext(Movable):
         for i in range(min(Int(num_subgroups), 8)):
             subgroups.append(u32.unsafe_offset(13 + i)[])
 
-        return ComputeProperties(max_group_size, max_group_x, max_group_y,
-                                  max_group_z, max_slm, num_subgroups, subgroups^)
+        return ComputeProperties(
+            max_group_size,
+            max_group_x,
+            max_group_y,
+            max_group_z,
+            max_slm,
+            num_subgroups,
+            subgroups^,
+        )
 
     # =========================================================================
     # Properties
@@ -334,8 +382,9 @@ struct IntelGPUContext(Movable):
         if ptr != Int(0):
             _ = self._lib.mem_free(self._context, ptr)
 
-    def memcpy_htod(mut self, dst_device: Int, src_host: Int,
-                    size: UInt64) raises:
+    def memcpy_htod(
+        mut self, dst_device: Int, src_host: Int, size: UInt64
+    ) raises:
         """Copy data from host to device.
 
         Args:
@@ -348,12 +397,15 @@ struct IntelGPUContext(Movable):
         """
         if dst_device == Int(0) or src_host == Int(0):
             raise Error("Host-to-device copy: null pointer")
-        var result = self._lib.memcpy_htod(self._cmdlist, dst_device, src_host, size)
+        var result = self._lib.memcpy_htod(
+            self._cmdlist, dst_device, src_host, size
+        )
         if result.is_error():
             raise Error("Host-to-device copy failed: " + String(result))
 
-    def memcpy_dtoh(mut self, dst_host: Int, src_device: Int,
-                    size: UInt64) raises:
+    def memcpy_dtoh(
+        mut self, dst_host: Int, src_device: Int, size: UInt64
+    ) raises:
         """Copy data from device to host.
 
         Args:
@@ -366,12 +418,15 @@ struct IntelGPUContext(Movable):
         """
         if dst_host == Int(0) or src_device == Int(0):
             raise Error("Device-to-host copy: null pointer")
-        var result = self._lib.memcpy_dtoh(self._cmdlist, dst_host, src_device, size)
+        var result = self._lib.memcpy_dtoh(
+            self._cmdlist, dst_host, src_device, size
+        )
         if result.is_error():
             raise Error("Device-to-host copy failed: " + String(result))
 
-    def memset_device(mut self, dst_device: Int, value: UInt8,
-                       size: UInt64) raises:
+    def memset_device(
+        mut self, dst_device: Int, value: UInt8, size: UInt64
+    ) raises:
         """Fill device memory with a byte value.
 
         Args:
@@ -384,7 +439,9 @@ struct IntelGPUContext(Movable):
         """
         if dst_device == Int(0):
             raise Error("Device memset: null pointer")
-        var result = self._lib.memset_device(self._cmdlist, dst_device, value, size)
+        var result = self._lib.memset_device(
+            self._cmdlist, dst_device, value, size
+        )
         if result.is_error():
             raise Error("Device memset failed: " + String(result))
 

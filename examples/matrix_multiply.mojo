@@ -53,8 +53,12 @@ def main() raises:
 
     # Load kernel
     var kernel = Kernel(
-        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-        "./matmul.spv", "matmul"
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./matmul.spv",
+        "matmul",
     )
     print("Kernel loaded")
 
@@ -91,7 +95,10 @@ def main() raises:
         for j in range(N):
             var sum: Float32 = 0.0
             for k in range(K):
-                sum += a_ptr.unsafe_offset(i * K + k)[] * b_ptr.unsafe_offset(k * N + j)[]
+                sum += (
+                    a_ptr.unsafe_offset(i * K + k)[]
+                    * b_ptr.unsafe_offset(k * N + j)[]
+                )
             var diff = abs(c_ptr.unsafe_offset(i * N + j)[] - sum)
             if diff > max_diff:
                 max_diff = diff

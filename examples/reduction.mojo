@@ -29,12 +29,16 @@ def main() raises:
     var h_output = ctx.allocate_host(output_bytes)
 
     # Initialize input data
-    var input_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_input)
+    var input_ptr = Pointer[Float32, MutUntrackedOrigin](
+        unsafe_from_address=h_input
+    )
     for i in range(N):
         input_ptr.unsafe_offset(i)[] = 1.0  # sum should be N
 
     # Zero output buffer
-    var output_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_output)
+    var output_ptr = Pointer[Float32, MutUntrackedOrigin](
+        unsafe_from_address=h_output
+    )
     for i in range(Int(num_groups)):
         output_ptr.unsafe_offset(i)[] = 0.0
 
@@ -50,8 +54,12 @@ def main() raises:
 
     # Load kernel
     var kernel = Kernel(
-        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-        "./reduction.spv", "reduce_sum"
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./reduction.spv",
+        "reduce_sum",
     )
     print("Kernel loaded")
 
@@ -62,7 +70,13 @@ def main() raises:
     print("Args set")
 
     # Launch kernel
-    print("Launching kernel (", num_groups, " groups x", group_size, " threads)...")
+    print(
+        "Launching kernel (",
+        num_groups,
+        " groups x",
+        group_size,
+        " threads)...",
+    )
 
     kernel.set_group_size(group_size, 1, 1)
     kernel.launch(ZeGroupCount(num_groups, 1, 1))

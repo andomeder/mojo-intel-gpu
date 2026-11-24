@@ -1,8 +1,10 @@
 from mojo_intel_gpu import IntelGPUContext, Kernel, ZeGroupCount
 from std.time.time import perf_counter_ns
 
+
 def ns_to_ms(ns: Int) -> Float64:
     return Float64(ns) / 1_000_000.0
+
 
 def main() raises:
     print("=== Load/Stress Test ===")
@@ -46,7 +48,14 @@ def main() raises:
     var da = ctx.allocate_device(bytes)
     var db = ctx.allocate_device(bytes)
     var dc = ctx.allocate_device(bytes)
-    var kernel = Kernel(ctx.library(), ctx.context(), ctx.device(), ctx.command_list(), "./vector_add.spv", "vector_add")
+    var kernel = Kernel(
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./vector_add.spv",
+        "vector_add",
+    )
     kernel.set_arg_pointer(0, da)
     kernel.set_arg_pointer(1, db)
     kernel.set_arg_pointer(2, dc)
@@ -62,7 +71,11 @@ def main() raises:
     t1 = perf_counter_ns()
     print("Kernel launch flood x", launches, ":", ns_to_ms(t1 - t0), "ms")
 
-    ctx.free_device(da); ctx.free_device(db); ctx.free_device(dc)
-    ctx.free_host(ha); ctx.free_host(hb); ctx.free_host(hc)
+    ctx.free_device(da)
+    ctx.free_device(db)
+    ctx.free_device(dc)
+    ctx.free_host(ha)
+    ctx.free_host(hb)
+    ctx.free_host(hc)
     ctx.close()
     print("=== Stress test complete ===")

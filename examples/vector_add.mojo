@@ -49,8 +49,12 @@ def main() raises:
 
     # Load kernel
     var kernel = Kernel(
-        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-        "./vector_add.spv", "vector_add"
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./vector_add.spv",
+        "vector_add",
     )
     print("Kernel loaded")
 
@@ -64,7 +68,13 @@ def main() raises:
     # Launch kernel
     var group_size = UInt32(256)
     var num_groups = UInt32((N + 255) / 256)
-    print("Launching kernel (", num_groups, " groups x", group_size, " threads)...")
+    print(
+        "Launching kernel (",
+        num_groups,
+        " groups x",
+        group_size,
+        " threads)...",
+    )
 
     kernel.set_group_size(group_size, 1, 1)
     kernel.launch(ZeGroupCount(num_groups, 1, 1))

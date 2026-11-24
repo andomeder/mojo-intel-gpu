@@ -16,6 +16,7 @@ from std.time.time import perf_counter_ns
 @fieldwise_init
 struct Timings(Copyable, Movable):
     """Summary of one measurement row, in microseconds."""
+
     var avg_us: Float64
     var min_us: Float64
     var med_us: Float64
@@ -78,12 +79,18 @@ def print_header():
 
 def print_row(name: String, size: UInt64, stats: Timings, size_bytes: Float64):
     print(
-        pad(name, 17), " | ",
-        pad(String(to_mb(size)), 9), " | ",
-        pad(String(stats.avg_us), 9), " | ",
-        pad(String(stats.min_us), 9), " | ",
-        pad(String(stats.med_us), 9), " | ",
-        pad(String(gbs(size_bytes, stats.avg_us)), 8), " | ",
+        pad(name, 17),
+        " | ",
+        pad(String(to_mb(size)), 9),
+        " | ",
+        pad(String(stats.avg_us), 9),
+        " | ",
+        pad(String(stats.min_us), 9),
+        " | ",
+        pad(String(stats.med_us), 9),
+        " | ",
+        pad(String(gbs(size_bytes, stats.avg_us)), 8),
+        " | ",
         pad(String(gbs(size_bytes, stats.min_us)), 8),
         sep="",
     )
@@ -92,8 +99,9 @@ def print_row(name: String, size: UInt64, stats: Timings, size_bytes: Float64):
 # ── tests ────────────────────────────────────────────────────────────────
 
 
-def test_h2d_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, h_buf: Int,
-                       size: UInt64, iters: Int) raises:
+def test_h2d_bandwidth(
+    mut ctx: IntelGPUContext, d_buf: Int, h_buf: Int, size: UInt64, iters: Int
+) raises:
     var times = List[UInt64]()
     for _ in range(iters):
         var t0 = perf_counter_ns()
@@ -103,8 +111,9 @@ def test_h2d_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, h_buf: Int,
     print_row("H2D (PCIe)", size, summarise(times), Float64(size))
 
 
-def test_d2h_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, h_buf: Int,
-                       size: UInt64, iters: Int) raises:
+def test_d2h_bandwidth(
+    mut ctx: IntelGPUContext, d_buf: Int, h_buf: Int, size: UInt64, iters: Int
+) raises:
     var times = List[UInt64]()
     for _ in range(iters):
         var t0 = perf_counter_ns()
@@ -114,8 +123,9 @@ def test_d2h_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, h_buf: Int,
     print_row("D2H (PCIe)", size, summarise(times), Float64(size))
 
 
-def test_d2d_bandwidth(mut ctx: IntelGPUContext, d_src: Int, d_dst: Int,
-                       size: UInt64, iters: Int) raises:
+def test_d2d_bandwidth(
+    mut ctx: IntelGPUContext, d_src: Int, d_dst: Int, size: UInt64, iters: Int
+) raises:
     var h_temp = ctx.allocate_host(size)
     var times = List[UInt64]()
     for _ in range(iters):
@@ -128,8 +138,9 @@ def test_d2d_bandwidth(mut ctx: IntelGPUContext, d_src: Int, d_dst: Int,
     print_row("D2D (via H)", size, summarise(times), Float64(size) * 2.0)
 
 
-def test_fill_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, size: UInt64,
-                        iters: Int) raises:
+def test_fill_bandwidth(
+    mut ctx: IntelGPUContext, d_buf: Int, size: UInt64, iters: Int
+) raises:
     var times = List[UInt64]()
     for _ in range(iters):
         var t0 = perf_counter_ns()
@@ -139,8 +150,14 @@ def test_fill_bandwidth(mut ctx: IntelGPUContext, d_buf: Int, size: UInt64,
     print_row("Fill (write)", size, summarise(times), Float64(size))
 
 
-def test_kernel_copy(mut ctx: IntelGPUContext, mut kernel: Kernel,
-                     d_src: Int, d_dst: Int, n: Int, iters: Int) raises:
+def test_kernel_copy(
+    mut ctx: IntelGPUContext,
+    mut kernel: Kernel,
+    d_src: Int,
+    d_dst: Int,
+    n: Int,
+    iters: Int,
+) raises:
     var size = UInt64(n * 4)
     var group_size = UInt32(256)
     var num_groups = UInt32((n + 255) / 256)
@@ -200,8 +217,12 @@ def main() raises:
     var d_kdst = ctx.allocate_device(kbytes)
 
     var kernel = Kernel(
-        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-        "./bandwidth.spv", "vec_copy"
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./bandwidth.spv",
+        "vec_copy",
     )
     test_kernel_copy(ctx, kernel, d_ksrc, d_kdst, n, iters)
 

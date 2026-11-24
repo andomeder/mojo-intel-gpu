@@ -17,6 +17,7 @@ from std.time.time import perf_counter_ns
 @fieldwise_init
 struct Timings(Copyable, Movable):
     """Summary of one measurement row, in microseconds."""
+
     var avg_us: Float64
     var min_us: Float64
     var med_us: Float64
@@ -71,11 +72,16 @@ def print_header():
 
 def print_row(name: String, iters: Int, stats: Timings):
     print(
-        pad(name, 29), " | ",
-        pad(String(iters), 4), "  | ",
-        pad(String(stats.avg_us), 9), " | ",
-        pad(String(stats.min_us), 9), " | ",
-        pad(String(stats.med_us), 9), " | ",
+        pad(name, 29),
+        " | ",
+        pad(String(iters), 4),
+        "  | ",
+        pad(String(stats.avg_us), 9),
+        " | ",
+        pad(String(stats.min_us), 9),
+        " | ",
+        pad(String(stats.med_us), 9),
+        " | ",
         pad(String(stats.max_us), 9),
         sep="",
     )
@@ -84,8 +90,9 @@ def print_row(name: String, iters: Int, stats: Timings):
 # ── tests ────────────────────────────────────────────────────────────────
 
 
-def test_empty_kernel_launch(mut ctx: IntelGPUContext, mut kernel: Kernel,
-                             iters: Int) raises:
+def test_empty_kernel_launch(
+    mut ctx: IntelGPUContext, mut kernel: Kernel, iters: Int
+) raises:
     """Measure pure launch overhead (no per-launch sync)."""
     # Warmup
     kernel.launch(ZeGroupCount(UInt32(1), 1, 1))
@@ -101,8 +108,9 @@ def test_empty_kernel_launch(mut ctx: IntelGPUContext, mut kernel: Kernel,
     print_row("Empty kernel launch", iters, summarise(times))
 
 
-def test_empty_kernel_sync(mut ctx: IntelGPUContext, mut kernel: Kernel,
-                           iters: Int) raises:
+def test_empty_kernel_sync(
+    mut ctx: IntelGPUContext, mut kernel: Kernel, iters: Int
+) raises:
     """Measure launch + sync (what users actually experience)."""
     var times = List[UInt64]()
     for _ in range(iters):
@@ -136,8 +144,12 @@ def main() raises:
 
     # Load empty kernel
     var kernel = Kernel(
-        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-        "./empty.spv", "empty"
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./empty.spv",
+        "empty",
     )
     kernel.set_group_size(UInt32(1), 1, 1)
 

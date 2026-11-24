@@ -75,7 +75,9 @@ def test_memory() raises:
     var d_buf2 = ctx.allocate_device(bytes)
 
     # Initialize source
-    var src_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_src)
+    var src_ptr = Pointer[Float32, MutUntrackedOrigin](
+        unsafe_from_address=h_src
+    )
     for i in range(N):
         src_ptr.unsafe_offset(i)[] = Float32(i) * 3.14
 
@@ -84,7 +86,9 @@ def test_memory() raises:
     ctx.memcpy_dtoh(h_dst, d_buf2, bytes)
 
     # Verify
-    var dst_ptr = Pointer[Float32, MutUntrackedOrigin](unsafe_from_address=h_dst)
+    var dst_ptr = Pointer[Float32, MutUntrackedOrigin](
+        unsafe_from_address=h_dst
+    )
     var errors = 0
     for i in range(N):
         if dst_ptr.unsafe_offset(i)[] != src_ptr.unsafe_offset(i)[]:
@@ -132,8 +136,12 @@ def test_kernel() raises:
 
     # Load kernel
     var kernel = Kernel(
-        ctx.library(), ctx.context(), ctx.device(), ctx.command_list(),
-        "./vector_add.spv", "vector_add"
+        ctx.library(),
+        ctx.context(),
+        ctx.device(),
+        ctx.command_list(),
+        "./vector_add.spv",
+        "vector_add",
     )
     print("  ✓ Kernel loaded")
 
@@ -192,9 +200,14 @@ def test_multi_gpu() raises:
     for i in range(count):
         var info = detector.get_gpu_info()
         print(
-            "  GPU[", i, "]:", info.name,
-            "vendor=", hex(Int(info.vendor_id)),
-            "device=", hex(Int(info.device_id)),
+            "  GPU[",
+            i,
+            "]:",
+            info.name,
+            "vendor=",
+            hex(Int(info.vendor_id)),
+            "device=",
+            hex(Int(info.device_id)),
         )
 
     if count >= 1:

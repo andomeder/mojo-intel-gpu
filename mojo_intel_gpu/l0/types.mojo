@@ -9,9 +9,11 @@ All struct sizes and field offsets are verified against the C headers.
 # Result codes
 # =============================================================================
 
+
 @fieldwise_init
 struct ZeResult(Copyable, Equatable, Movable, Writable):
     """Level Zero result code wrapper."""
+
     var value: UInt32
 
     comptime SUCCESS: UInt32 = 0
@@ -36,9 +38,11 @@ struct ZeResult(Copyable, Equatable, Movable, Writable):
 # Enumerations
 # =============================================================================
 
+
 @fieldwise_init
 struct ZeDeviceType(Copyable, Movable, Writable):
     """Device type enumeration."""
+
     var value: UInt32
 
     comptime GPU: UInt32 = 1
@@ -65,6 +69,7 @@ struct ZeDeviceType(Copyable, Movable, Writable):
 @fieldwise_init
 struct ZeModuleFormat(Copyable, Movable, Writable):
     """Module format enumeration."""
+
     var value: UInt32
 
     comptime IL_SPIRV: UInt32 = 0
@@ -123,6 +128,7 @@ comptime ZeEventHandle = Int
 # Device properties struct (matches ze_device_properties_t layout)
 # =============================================================================
 
+
 @fieldwise_init
 struct DeviceProperties(Copyable, Movable, Writable):
     """Device properties from zeDeviceGetProperties.
@@ -131,6 +137,7 @@ struct DeviceProperties(Copyable, Movable, Writable):
       stype(4) + pNext(8) + type(4) + vendorId(4) + deviceId(4) + flags(4) +
       subdeviceId(4) + coreClockRate(4) + maxMemAllocSize(8) + ... + name[256]
     """
+
     var vendor_id: UInt32
     var device_id: UInt32
     var device_type: ZeDeviceType
@@ -144,7 +151,9 @@ struct DeviceProperties(Copyable, Movable, Writable):
         writer.write(", device=", hex(Int(self.device_id)))
         writer.write(", type=", self.device_type)
         writer.write(", clock=", self.core_clock_mhz, "MHz")
-        writer.write(", max_mem=", Int(self.max_mem_alloc) // (1024 * 1024), "MB")
+        writer.write(
+            ", max_mem=", Int(self.max_mem_alloc) // (1024 * 1024), "MB"
+        )
         writer.write(", name=", self.name)
         writer.write(")")
 
@@ -153,9 +162,11 @@ struct DeviceProperties(Copyable, Movable, Writable):
 # Compute properties struct (matches ze_device_compute_properties_t)
 # =============================================================================
 
+
 @fieldwise_init
 struct ComputeProperties(Copyable, Movable, Writable):
     """Compute properties from zeDeviceGetComputeProperties."""
+
     var max_group_size: UInt32
     var max_group_count_x: UInt32
     var max_group_count_y: UInt32
@@ -167,8 +178,15 @@ struct ComputeProperties(Copyable, Movable, Writable):
     def write_to(self, mut writer: Some[Writer]):
         writer.write("ComputeProperties(")
         writer.write("max_group=", self.max_group_size)
-        writer.write(", max_groups=(", self.max_group_count_x, ",",
-                     self.max_group_count_y, ",", self.max_group_count_z, ")")
+        writer.write(
+            ", max_groups=(",
+            self.max_group_count_x,
+            ",",
+            self.max_group_count_y,
+            ",",
+            self.max_group_count_z,
+            ")",
+        )
         writer.write(", slm=", self.max_shared_local_memory, "B")
         writer.write(", subgroups=", self.sub_group_sizes)
         writer.write(")")
@@ -178,9 +196,11 @@ struct ComputeProperties(Copyable, Movable, Writable):
 # Group count for kernel launch
 # =============================================================================
 
+
 @fieldwise_init
 struct ZeGroupCount(Copyable, Movable, Writable):
     """Kernel launch group count — plain 12-byte struct (3x uint32_t)."""
+
     var x: UInt32
     var y: UInt32
     var z: UInt32
