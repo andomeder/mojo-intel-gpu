@@ -1,5 +1,7 @@
 # mojo_intel_gpu
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24544276.svg)](https://doi.org/10.5281/zenodo.24544276)
+
 Intel GPU support for Mojo via Level Zero FFI.
 
 ## Overview
@@ -455,6 +457,31 @@ sudo usermod -aG render $USER
 6. Submit a pull request
 
 
+
+## Citing this work
+
+This project's poster has a DOI. Cite the poster when you refer to the Intel Arc
+performance characterisation; cite the repository when you use the code.
+
+> Obino, William. (2026). *Bringing Modern GPU Compute to Underrepresented Hardware:
+> A Mojo/Level Zero Implementation for Intel Arc (Battlemage Xe2)* [Poster]. Poster GP-42,
+> Deep Learning Indaba 2026 (Research in Africa Days), Lagos. Zenodo.
+> https://doi.org/10.5281/zenodo.24544276
+
+```bibtex
+@misc{obino2026mojo,
+  author       = {Obino, William},
+  title        = {Bringing Modern GPU Compute to Underrepresented Hardware:
+                  A Mojo/Level Zero Implementation for Intel Arc (Battlemage Xe2)},
+  year         = {2026},
+  howpublished = {Poster GP-42, Deep Learning Indaba 2026 (Research in Africa Days), Lagos},
+  doi          = {10.5281/zenodo.24544276},
+  url          = {https://doi.org/10.5281/zenodo.24544276},
+  note         = {Code: https://github.com/andomeder/mojo-intel-gpu (MIT)}
+}
+```
+
+Poster licence: CC BY 4.0. Code licence: MIT.
 
 ## License
 
